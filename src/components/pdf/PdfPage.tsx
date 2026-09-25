@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import AnnotationLayer from './AnnotationLayer';
@@ -65,7 +65,7 @@ function mergeLineRects(rects: { x: number; y: number; w: number; h: number }[])
   return lines.filter((l) => l.w > 0.5 && l.h > 0.5);
 }
 
-export default function PdfPage(props: Props) {
+export default memo(function PdfPage(props: Props) {
   const {
     pdfDoc,
     pageNumber,
@@ -118,9 +118,10 @@ export default function PdfPage(props: Props) {
     };
   }, [pdfDoc, pageNumber, onPageSize]);
 
-  // 加载文本层（PDF 点坐标，供「文本标注」工具选中）
+  // 加载文本层（PDF 点坐标，供「文本标注」工具选中）：
+  // 惰性——进入视口才提取，避免打开文档时对全部页跑 getTextContent
   useEffect(() => {
-    if (!size) return;
+    if (!size || !inView) return;
     const page = pageRef.current;
     if (!page) return;
     let cancelled = false;
@@ -151,7 +152,7 @@ export default function PdfPage(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [size, pageNumber]);
+  }, [size, pageNumber, inView]);
 
   // 进入视口后渲染 canvas；缩放变化时按 zoom × devicePixelRatio 重渲染以保证清晰
   useEffect(() => {
@@ -246,7 +247,7 @@ export default function PdfPage(props: Props) {
             className="block"
             style={{ width: displayWidth, height: displayHeight }}
           />
-          {textItems.length > 0 && (
+          {inView && textItems.length > 0 && (
             <div
               ref={textLayerRef}
               className="absolute left-0 top-0 origin-top-left"
@@ -328,4 +329,4 @@ export default function PdfPage(props: Props) {
       )}
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import PdfPage from './PdfPage';
 import SelectedPanel from './SelectedPanel';
@@ -43,6 +43,10 @@ const PRESET_COLORS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#
 const NEW_TAG_COLOR = '#3b82f6';
 const clampZoom = (z: number) => Math.min(4, Math.max(0.25, z));
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+// 模块级空数组：保持 props 引用稳定，避免 PdfPage memo 失效
+const EMPTY_ANNS: Annotation[] = [];
+const EMPTY_RECTS: Rect[] = [];
 
 interface Props {
   documentId: number;
@@ -107,38 +111,32 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
     if (saveTimer.current) clearTimeout(saveTimer.current);
   }, []);
 
-  // 跟踪当前可见页（供页码浮标）：取第一个底部越过视口上方判断线的页
+  // 跟踪当前可见页（供页码浮标）：IntersectionObserver 维护可见页集合，取最小页号；
+  // 避免滚动时逐帧 O(n) 查询布局（页数多时掉帧）
   useEffect(() => {
     if (!pdfDoc || pageCount === 0) return;
-    let raf = 0;
+    const visible = new Set<number>();
     let cur = 0;
-    const update = () => {
-      raf = 0;
-      const els = document.querySelectorAll<HTMLElement>('[data-page]');
-      const line = window.innerHeight * 0.25;
-      let found = 1;
-      for (const el of els) {
-        if (el.getBoundingClientRect().bottom >= line) {
-          found = Number(el.dataset.page) || 1;
-          break;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const p = Number((e.target as HTMLElement).dataset.page) || 0;
+          if (!p) continue;
+          if (e.isIntersecting) visible.add(p);
+          else visible.delete(p);
         }
-      }
-      if (found !== cur) {
-        cur = found;
-        setCurrentPage(found);
-      }
-    };
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
-    window.addEventListener('scroll', schedule, { passive: true, capture: true });
-    window.addEventListener('resize', schedule);
-    update();
-    return () => {
-      window.removeEventListener('scroll', schedule, { capture: true });
-      window.removeEventListener('resize', schedule);
-      if (raf) cancelAnimationFrame(raf);
-    };
+        if (visible.size === 0) return; // 快速滚动瞬间无可见页，保持上次值
+        const first = Math.min(...visible);
+        if (first !== cur) {
+          cur = first;
+          setCurrentPage(first);
+        }
+      },
+      // 顶部收缩 25%：页底部越过视口 1/4 线才算可见，与原判断线一致
+      { rootMargin: '-25% 0px 0px 0px' },
+    );
+    document.querySelectorAll<HTMLElement>('[data-page]').forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
   }, [pdfDoc, pageCount]);
 
   // 从标签索引跳转（?ann=id）：选中并滚动到对应页面
@@ -425,13 +423,27 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
 
   const selected = annotations.find((a) => a.id === selectedId) ?? null;
 
-  // 查找匹配按页分组 + 当前匹配
-  const findRectsByPage = new Map<number, Rect[]>();
-  for (const m of findMatches) {
-    const arr = findRectsByPage.get(m.page) ?? [];
-    arr.push(...m.rects);
-    findRectsByPage.set(m.page, arr);
-  }
+  // 批注/查找结果按页分组（useMemo 保持引用稳定，配合 PdfPage 的 React.memo）
+  const annotationsByPage = useMemo(() => {
+    const m = new Map<number, Annotation[]>();
+    for (const a of annotations) {
+      const arr = m.get(a.page);
+      if (arr) arr.push(a);
+      else m.set(a.page, [a]);
+    }
+    return m;
+  }, [annotations]);
+
+  const findRectsByPage = useMemo(() => {
+    const m = new Map<number, Rect[]>();
+    for (const match of findMatches) {
+      const arr = m.get(match.page) ?? [];
+      arr.push(...match.rects);
+      m.set(match.page, arr);
+    }
+    return m;
+  }, [findMatches]);
+
   const currentFind = findMatches[findIndex] ?? null;
 
   if (error) {
@@ -599,7 +611,7 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
               pdfDoc={pdfDoc}
               pageNumber={n}
               zoom={zoom}
-              annotations={annotations.filter((a) => a.page === n)}
+              annotations={annotationsByPage.get(n) ?? EMPTY_ANNS}
               tool={tool}
               color={color}
               strokeSize={strokeSize}
@@ -612,8 +624,8 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
               onEraseEnd={finishErase}
               onSelectText={onSelectText}
               onPageSize={onPageSize}
-              findRects={findRectsByPage.get(n) ?? []}
-              findCurrent={currentFind?.page === n ? currentFind.rects : []}
+              findRects={findRectsByPage.get(n) ?? EMPTY_RECTS}
+              findCurrent={currentFind?.page === n ? currentFind.rects : EMPTY_RECTS}
             />
           </div>
         ))}
