@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import AnnotationLayer from './AnnotationLayer';
@@ -14,8 +14,38 @@ interface TextItem {
   str: string;
   left: number;
   top: number;
+  /** 文本基线的 y 坐标（scale-1），用于按字体 ascent 校准盒子上沿 */
+  baseline: number;
+  /** PDF 字体宽度表给出的精确前进宽度（scale-1 单位），用于校准 span 渲染宽度 */
+  width: number;
   fontHeight: number;
   angle: number;
+}
+
+// —— 字体 ascent 测量（与 pdf.js 文本层同一思路）——
+// span 渲染用的是浏览器替代字体，其 ascent 比例决定盒子上沿应距基线多远。
+// 用 actualBoundingBoxAscent 量真实字形高度，按 fontFamily 缓存。
+const ascentRatioCache = new Map<string, number>();
+let ascentMeasureCtx: CanvasRenderingContext2D | null = null;
+
+function getAscentRatio(fontFamily: string): number {
+  const cached = ascentRatioCache.get(fontFamily);
+  if (cached != null) return cached;
+  let ratio = 0.8; // 典型拉丁字体经验值，作为测量失败时的回退
+  try {
+    ascentMeasureCtx ??= document.createElement('canvas').getContext('2d');
+    if (ascentMeasureCtx) {
+      ascentMeasureCtx.font = `100px ${fontFamily}`;
+      const m = ascentMeasureCtx.measureText('国gÉ');
+      if (m.actualBoundingBoxAscent) {
+        ratio = Math.min(1.2, Math.max(0.5, m.actualBoundingBoxAscent / 100));
+      }
+    }
+  } catch {
+    /* 测量失败用回退值 */
+  }
+  ascentRatioCache.set(fontFamily, ratio);
+  return ratio;
 }
 
 interface Props {
@@ -142,6 +172,8 @@ export default memo(function PdfPage(props: Props) {
             str,
             left: tx[4],
             top: tx[5] - fontHeight,
+            baseline: tx[5],
+            width: item.width,
             fontHeight,
             angle: Math.atan2(tx[1], tx[0]),
           });
@@ -153,6 +185,52 @@ export default memo(function PdfPage(props: Props) {
       cancelled = true;
     };
   }, [size, pageNumber, inView]);
+
+  // 字体对齐校准：浏览器用替代字体渲染 span，字形宽度与 PDF 字体不同，
+  // 偏差在 span 内逐字符累积（行尾偏得最多）。这里按 item.width（PDF 字体
+  // 宽度表的真值宽度）把每个 span 拉伸/压缩到精确宽度——起点钉死在 left，
+  // 终点钉死在 left+width，span 内部用什么字体都不影响对齐。
+  useLayoutEffect(() => {
+    const container = textLayerRef.current;
+    if (!container || textItems.length === 0) return;
+    const spans = container.children;
+    const n = Math.min(textItems.length, spans.length);
+    // 先清掉上次写入的 scaleX：getBoundingClientRect 会包含已有 transform，
+    // 不清除会在 zoom 变化重测时把旧校准值重复计入
+    for (let i = 0; i < n; i++) {
+      (spans[i] as HTMLElement).style.transform = '';
+    }
+    // 集中读再集中写，避免读写交错造成布局抖动
+    const scales: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = textItems[i];
+      // 旋转文本的 getBoundingClientRect 是包围盒而非行进方向长度，跳过
+      if (t.width <= 0 || Math.abs(t.angle) > 1e-6) {
+        scales.push(1);
+        continue;
+      }
+      const measured = (spans[i] as HTMLElement).getBoundingClientRect().width / zoom;
+      scales.push(measured > 0 ? t.width / measured : 1);
+    }
+    for (let i = 0; i < n; i++) {
+      const s = scales[i];
+      if (Math.abs(s - 1) <= 0.005) continue;
+      (spans[i] as HTMLElement).style.transform = `scaleX(${s.toFixed(4)})`;
+    }
+    // 竖向校准：span 初始 top = 基线 − fontHeight，比真实字形顶部高出
+    // (1−ascent)×fontHeight（典型 ~0.2em），导致选区矩形偏高、底边压在基线上，
+    // 下划线因此横穿文字底部。按实际字体的 ascent 比例把盒子上沿降到
+    // 「基线 − ascent」，盒子下沿随之变为「基线 + (1−ascent)」，正好包裹字形。
+    const first = spans[0] as HTMLElement | undefined;
+    if (first) {
+      const ratio = getAscentRatio(getComputedStyle(first).fontFamily);
+      for (let i = 0; i < n; i++) {
+        const t = textItems[i];
+        if (Math.abs(t.angle) > 1e-6) continue;
+        (spans[i] as HTMLElement).style.top = `${t.baseline - t.fontHeight * ratio}px`;
+      }
+    }
+  }, [textItems, zoom]);
 
   // 进入视口后渲染 canvas；缩放变化时按 zoom × devicePixelRatio 重渲染以保证清晰
   useEffect(() => {
@@ -273,7 +351,9 @@ export default memo(function PdfPage(props: Props) {
                     whiteSpace: 'pre',
                     color: 'transparent',
                     transformOrigin: '0 0',
-                    transform: t.angle !== 0 ? `rotate(${t.angle}rad)` : undefined,
+                    // 用独立 rotate 属性：它先于 transform 应用，
+                    // 校准 effect 写入的 scaleX 因此始终沿文本本地方向
+                    rotate: t.angle !== 0 ? `${t.angle}rad` : undefined,
                   }}
                 >
                   {t.str}

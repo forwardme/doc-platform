@@ -254,7 +254,9 @@ export default function AnnotationLayer(props: Props) {
           return (
             <g key={a.id}>
               {rects.map((r, i) => {
-                const y = r.y + r.h - 2;
+                // 画在选区盒子下方 0.5pt 处：盒子底边≈基线+下沉高度，
+                // 贴底画会压住文字底部笔画（中文字形主体坐在基线上）
+                const y = r.y + r.h + 0.5;
                 return (
                   <g key={i}>
                     <rect x={r.x} y={y} width={r.w} height={2} fill={a.color} />
