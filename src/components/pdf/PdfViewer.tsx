@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import PdfPage from './PdfPage';
 import SelectedPanel from './SelectedPanel';
@@ -294,16 +294,35 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
     setPageSize(s);
   }, []);
 
-  const fitWidth = useCallback(() => {
+  // 缩放时保持阅读位置：记录当前页相对视口顶部的位置，重排后补偿滚动差值
+  const zoomAnchorRef = useRef<{ page: number; top: number } | null>(null);
+
+  function changeZoom(next: (z: number) => number) {
+    const el = document.querySelector<HTMLElement>(`[data-page="${currentPage}"]`);
+    if (el) zoomAnchorRef.current = { page: currentPage, top: el.getBoundingClientRect().top };
+    setZoom(next);
+  }
+
+  useLayoutEffect(() => {
+    const a = zoomAnchorRef.current;
+    if (!a) return;
+    zoomAnchorRef.current = null;
+    const el = document.querySelector<HTMLElement>(`[data-page="${a.page}"]`);
+    if (!el) return;
+    const dy = el.getBoundingClientRect().top - a.top;
+    if (Math.abs(dy) > 1) window.scrollBy(0, dy);
+  }, [zoom]);
+
+  function fitWidth() {
     const w = viewerRef.current?.clientWidth;
     const pw = pageSizeRef.current?.w;
-    if (w && pw) setZoom(clampZoom(w / pw));
-  }, []);
+    if (w && pw) changeZoom(() => clampZoom(w / pw));
+  }
 
-  const fitPage = useCallback(() => {
+  function fitPage() {
     const h = pageSizeRef.current?.h;
-    if (h) setZoom(clampZoom((window.innerHeight - 140) / h));
-  }, []);
+    if (h) changeZoom(() => clampZoom((window.innerHeight - 140) / h));
+  }
 
   const applyTextAnnotation = useCallback(
     (type: 'highlight' | 'underline') => {
@@ -499,9 +518,9 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
 
           <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
           <div className="flex shrink-0 items-center gap-0.5">
-            <IconButton icon={ZoomOut} label="缩小" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} />
+            <IconButton icon={ZoomOut} label="缩小" onClick={() => changeZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} />
             <span className="w-11 text-center text-xs text-gray-500">{Math.round(zoom * 100)}%</span>
-            <IconButton icon={ZoomIn} label="放大" onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} />
+            <IconButton icon={ZoomIn} label="放大" onClick={() => changeZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} />
           </div>
 
           <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />

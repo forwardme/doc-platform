@@ -107,7 +107,9 @@ export default function PdfPage(props: Props) {
       const vp = p.getViewport({ scale: 1 });
       pageRef.current = p;
       setSize({ w: vp.width, h: vp.height });
-      if (pageNumber === 1) onPageSize?.({ w: vp.width, h: vp.height });
+      // 基准页：封面（第 1 页）常与正文尺寸不同，多页文档以第 2 页为准
+      const refPage = pdfDoc.numPages > 1 ? 2 : 1;
+      if (pageNumber === refPage) onPageSize?.({ w: vp.width, h: vp.height });
     });
     return () => {
       cancelled = true;
