@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import PrintButton from '../PrintButton';
+import { Edit, Loader2, Save, X } from 'lucide-react';
 
 export default function WordViewer({ documentId }: { documentId: number }) {
   const [html, setHtml] = useState('');
@@ -74,9 +75,10 @@ export default function WordViewer({ documentId }: { documentId: number }) {
           <>
             <button
               onClick={() => setEditing(true)}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              title="编辑"
+              className="rounded-md bg-blue-600 p-1.5 text-white hover:bg-blue-700"
             >
-              ✏️ 编辑
+              <Edit size={16} />
             </button>
             <PrintButton />
             <span className="ml-auto text-xs text-gray-400">只读查看</span>
@@ -103,16 +105,18 @@ export default function WordViewer({ documentId }: { documentId: number }) {
               {saved && <span className="text-xs text-green-600">已保存</span>}
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                title="取消编辑"
+                className="rounded-md p-1.5 text-gray-600 hover:bg-gray-100"
               >
-                取消
+                <X size={16} />
               </button>
               <button
                 onClick={save}
                 disabled={saving}
-                className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                title="保存"
+                className="rounded-md bg-green-600 p-1.5 text-white hover:bg-green-700 disabled:opacity-50"
               >
-                {saving ? '保存中…' : '保存'}
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               </button>
             </div>
           </>

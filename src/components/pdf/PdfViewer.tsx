@@ -6,20 +6,37 @@ import PdfPage from './PdfPage';
 import SelectedPanel from './SelectedPanel';
 import SelectionToolbar from './SelectionToolbar';
 import type { Annotation, TextSelection, Tool, Tag } from './types';
+import {
+  Eraser,
+  GripHorizontal,
+  Highlighter,
+  MoveHorizontal,
+  MoveVertical,
+  MousePointer2,
+  Pen,
+  StickyNote,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import IconButton from '@/components/ui/IconButton';
+import { useLocalStorage } from '@/lib/useLocalStorage';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
-const TOOLS: { key: Tool; label: string; icon: string }[] = [
-  { key: 'select', label: '选择', icon: '🖱' },
-  { key: 'ink', label: '手写', icon: '✍️' },
-  { key: 'text', label: '文本', icon: '🖍' },
-  { key: 'note', label: '便签', icon: '📝' },
-  { key: 'eraser', label: '橡皮', icon: '🧹' },
+const TOOLS: { key: Tool; label: string; desc: string; icon: LucideIcon }[] = [
+  { key: 'select', label: '选择', desc: '选中 / 移动批注', icon: MousePointer2 },
+  { key: 'ink', label: '手写', desc: '自由绘制笔迹', icon: Pen },
+  { key: 'text', label: '文本', desc: '选中文字加高亮 / 下划线', icon: Highlighter },
+  { key: 'note', label: '便签', desc: '点击页面添加便签', icon: StickyNote },
+  { key: 'eraser', label: '橡皮', desc: '擦除批注', icon: Eraser },
 ];
 
 const PRESET_COLORS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#111827'];
 const NEW_TAG_COLOR = '#3b82f6';
 const clampZoom = (z: number) => Math.min(4, Math.max(0.25, z));
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 interface Props {
   documentId: number;
@@ -45,6 +62,12 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pageSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const [tpos, setTpos] = useLocalStorage<{ x: number; y: number; scale: number; inited: boolean }>(
+    'pdf-toolbar',
+    { x: 0, y: 0, scale: 1, inited: false },
+  );
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
 
   // 加载 PDF
   useEffect(() => {
@@ -248,6 +271,50 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
     [selection, color, addAnnotation, clearSelection],
   );
 
+  // —— 浮动工具栏：首次居中（移动端贴底）、拖动、吸附边框 ——
+  useEffect(() => {
+    if (tpos.inited || !pdfDoc) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth || 340;
+    const h = panel.offsetHeight || 48;
+    const isMobile = window.innerWidth < 768;
+    const x = Math.max(8, Math.round((window.innerWidth - w) / 2));
+    const y = isMobile ? Math.max(8, window.innerHeight - h - 8) : 8;
+    setTpos({ x, y, scale: 1, inited: true });
+  }, [tpos.inited, pdfDoc, setTpos]);
+
+  function onGripDown(e: React.PointerEvent) {
+    dragRef.current = { sx: e.clientX, sy: e.clientY, ox: tpos.x, oy: tpos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onGripMove(e: React.PointerEvent) {
+    const d = dragRef.current;
+    if (!d) return;
+    setTpos({ ...tpos, x: d.ox + (e.clientX - d.sx), y: d.oy + (e.clientY - d.sy) });
+  }
+
+  function onGripUp() {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const M = 8;
+    const distTop = rect.top;
+    const distBottom = window.innerHeight - rect.bottom;
+    const distLeft = rect.left;
+    const distRight = window.innerWidth - rect.right;
+    const min = Math.min(distTop, distBottom, distLeft, distRight);
+    const nx = clamp(rect.left, M, window.innerWidth - rect.width - M);
+    const ny = clamp(rect.top, M, window.innerHeight - rect.height - M);
+    if (min === distTop) setTpos({ ...tpos, x: nx, y: M });
+    else if (min === distBottom) setTpos({ ...tpos, x: nx, y: window.innerHeight - rect.height - M });
+    else if (min === distLeft) setTpos({ ...tpos, x: M, y: ny });
+    else setTpos({ ...tpos, x: window.innerWidth - rect.width - M, y: ny });
+  }
+
   // 切换工具时清除选区
   useEffect(() => {
     if (tool !== 'text') clearSelection();
@@ -264,98 +331,121 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
 
   return (
     <div ref={viewerRef}>
-      {/* 工具栏 */}
-      <div className="print:hidden sticky top-14 z-30 mb-4 flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
-        {TOOLS.map((t) => (
+      {/* 浮动工具栏（可拖动、吸附边框、缩放） */}
+      <div
+        ref={panelRef}
+        className="print:hidden fixed z-40"
+        style={{ left: tpos.x, top: tpos.y, zoom: tpos.scale }}
+      >
+        <div className="flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-0.5 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
           <button
-            key={t.key}
-            onClick={() => setTool(t.key)}
-            title={t.label}
-            className={`rounded-md px-2.5 py-1.5 text-sm ${
-              tool === t.key ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            onPointerDown={onGripDown}
+            onPointerMove={onGripMove}
+            onPointerUp={onGripUp}
+            onPointerCancel={onGripUp}
+            title="拖动工具栏"
+            aria-label="拖动工具栏"
+            className="shrink-0 cursor-grab touch-none rounded p-1.5 text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
           >
-            <span className="mr-1">{t.icon}</span>
-            {t.label}
+            <GripHorizontal size={16} />
           </button>
-        ))}
 
-        <span className="mx-1 h-6 w-px bg-gray-200" />
-        <div className="flex items-center gap-1">
-          {PRESET_COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setColor(c)}
-              className="h-6 w-6 rounded-full border border-gray-300"
-              style={{ backgroundColor: c, outline: color === c ? '2px solid #2563eb' : 'none', outlineOffset: 1 }}
+          {TOOLS.map((t) => (
+            <IconButton
+              key={t.key}
+              icon={t.icon}
+              label={t.label}
+              description={t.desc}
+              active={tool === t.key}
+              onClick={() => setTool(t.key)}
             />
           ))}
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="ml-1 h-7 w-8 cursor-pointer border-0 bg-transparent p-0"
-          />
-        </div>
 
-        <span className="mx-1 h-6 w-px bg-gray-200" />
-        <div className="flex items-center gap-1 text-xs text-gray-500">
-          <span>线宽</span>
-          <input
-            type="range"
-            min={1}
-            max={8}
-            value={strokeSize}
-            onChange={(e) => setStrokeSize(Number(e.target.value))}
-            className="w-20"
-          />
-        </div>
-
-        {tool === 'eraser' && (
-          <>
-            <span className="mx-1 h-6 w-px bg-gray-200" />
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <span>橡皮大小</span>
-              <input
-                type="range"
-                min={6}
-                max={32}
-                value={eraserSize}
-                onChange={(e) => setEraserSize(Number(e.target.value))}
-                className="w-20"
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-0.5">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setColor(c)}
+                title={c}
+                className="h-6 w-6 rounded-full border border-gray-300"
+                style={{ backgroundColor: c, outline: color === c ? '2px solid #2563eb' : 'none', outlineOffset: 1 }}
               />
-            </div>
-          </>
-        )}
+            ))}
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              title="自定义颜色"
+              className="ml-1 h-7 w-8 shrink-0 cursor-pointer border-0 bg-transparent p-0"
+            />
+          </div>
 
-        <span className="mx-1 h-6 w-px bg-gray-200" />
-        <div className="flex items-center gap-1 text-sm">
-          <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className="rounded px-2 py-1 hover:bg-gray-100">
-            −
-          </button>
-          <span className="w-12 text-center text-xs text-gray-500">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} className="rounded px-2 py-1 hover:bg-gray-100">
-            ＋
-          </button>
-        </div>
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-1">
+            <input
+              type="range"
+              min={1}
+              max={8}
+              value={strokeSize}
+              onChange={(e) => setStrokeSize(Number(e.target.value))}
+              title={`线宽 ${strokeSize}`}
+              className="w-16"
+            />
+          </div>
 
-        <span className="mx-1 h-6 w-px bg-gray-200" />
-        <div className="flex items-center gap-1 text-sm text-gray-600">
-          <button onClick={fitWidth} title="适配页面宽度" className="rounded px-2 py-1 hover:bg-gray-100">
-            适配宽度
-          </button>
-          <button onClick={fitPage} title="适配页面长度" className="rounded px-2 py-1 hover:bg-gray-100">
-            适配页面
-          </button>
-        </div>
+          {tool === 'eraser' && (
+            <>
+              <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+              <div className="flex shrink-0 items-center gap-1">
+                <input
+                  type="range"
+                  min={6}
+                  max={32}
+                  value={eraserSize}
+                  onChange={(e) => setEraserSize(Number(e.target.value))}
+                  title={`橡皮大小 ${eraserSize}`}
+                  className="w-16"
+                />
+              </div>
+            </>
+          )}
 
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={undo} className="rounded-md px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-100">
-            ↺ 撤销
-          </button>
-          <span className={`text-xs ${saving === 'saving' ? 'text-amber-500' : 'text-green-600'}`}>
-            {saving === 'saving' ? '保存中…' : '已保存'}
-          </span>
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconButton icon={ZoomOut} label="缩小" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} />
+            <span className="w-11 text-center text-xs text-gray-500">{Math.round(zoom * 100)}%</span>
+            <IconButton icon={ZoomIn} label="放大" onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} />
+          </div>
+
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconButton icon={MoveHorizontal} label="适配宽度" description="按页面宽度缩放" onClick={fitWidth} />
+            <IconButton icon={MoveVertical} label="适配页面" description="按页面高度缩放" onClick={fitPage} />
+          </div>
+
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconButton icon={Undo2} label="撤销" description="撤销上一个批注" onClick={undo} />
+            <span
+              className={`h-2 w-2 rounded-full ${saving === 'saving' ? 'bg-amber-400' : 'bg-green-500'}`}
+              title={saving === 'saving' ? '保存中…' : '已保存'}
+            />
+          </div>
+
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <div className="flex shrink-0 items-center gap-1">
+            <input
+              type="range"
+              min={0.8}
+              max={1.5}
+              step={0.1}
+              value={tpos.scale}
+              onChange={(e) => setTpos({ ...tpos, scale: Number(e.target.value) })}
+              title={`工具栏大小 ${Math.round(tpos.scale * 100)}%`}
+              className="w-14"
+            />
+          </div>
         </div>
       </div>
 

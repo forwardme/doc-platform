@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogoutButton } from './LogoutButton';
+import { BookOpen, Files, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Tags, X } from 'lucide-react';
+import { useLocalStorage } from '@/lib/useLocalStorage';
 
 interface RecentDoc {
   id: number;
@@ -33,6 +34,11 @@ const TYPE_DOT: Record<string, string> = {
   xlsx: '#10b981',
   xls: '#10b981',
 };
+
+const NAV = [
+  { href: '/', label: '文档', icon: Files },
+  { href: '/tags', label: '标签索引', icon: Tags },
+];
 
 function notifyChanged() {
   window.dispatchEvent(new Event('pdfsite:changed'));
@@ -181,10 +187,12 @@ function ManageList(props: {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, collapsed, children }: { title: string; collapsed?: boolean; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</div>
+      <div className={`mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-gray-400 ${collapsed ? 'md:hidden' : ''}`}>
+        {title}
+      </div>
       {children}
     </div>
   );
@@ -197,6 +205,10 @@ export default function Sidebar({ username }: { username: string }) {
     tags: [],
   });
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useLocalStorage('sidebar-collapsed', false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const rail = collapsed;
 
   const load = useCallback(async () => {
     try {
@@ -217,72 +229,131 @@ export default function Sidebar({ username }: { username: string }) {
     return () => window.removeEventListener('pdfsite:changed', load);
   }, [load]);
 
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
   const navActive = (href: string) =>
     (href === '/' && pathname === '/') || (href !== '/' && pathname.startsWith(href));
 
   return (
-    <aside className="print:hidden sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-gray-200 bg-white">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          📚 文档工作台
-        </Link>
-      </div>
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
 
-      <nav className="flex gap-1 border-b border-gray-100 p-2 text-sm">
-        <Link
-          href="/"
-          className={`flex-1 rounded-md px-3 py-1.5 text-center ${navActive('/') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
+      {!mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="print:hidden fixed left-3 top-3 z-40 rounded-md border border-gray-200 bg-white p-2 text-gray-600 shadow-sm md:hidden"
+          title="打开菜单"
         >
-          文档
-        </Link>
-        <Link
-          href="/tags"
-          className={`flex-1 rounded-md px-3 py-1.5 text-center ${navActive('/tags') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          标签索引
-        </Link>
-      </nav>
+          <Menu size={18} />
+        </button>
+      )}
 
-      <div className="flex-1 overflow-y-auto p-2">
-        <Section title="最近打开">
-          {data.recent.length === 0 ? (
-            <p className="px-2 text-xs text-gray-400">暂无记录</p>
-          ) : (
-            <ul className="space-y-0.5">
-              {data.recent.map((d) => (
-                <li key={d.id}>
-                  <Link
-                    href={`/viewer/${d.id}`}
-                    className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-50"
-                    title={d.title}
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: TYPE_DOT[d.extension] ?? '#9ca3af' }} />
-                    <span className="min-w-0 flex-1 truncate text-sm text-gray-700">{d.title}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+      <aside
+        className={`print:hidden fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-gray-200 bg-white transition-all md:sticky md:top-0 md:h-screen md:shrink-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0 ${rail ? 'md:w-16' : 'md:w-60'}`}
+      >
+        <div className={`flex items-center gap-2 border-b border-gray-100 py-3 ${rail ? 'md:justify-center md:px-0' : 'px-4'}`}>
+          <Link href="/" className="flex items-center gap-2">
+            <BookOpen size={18} className="shrink-0 text-blue-600" />
+            <span className={`text-lg font-semibold tracking-tight ${rail ? 'md:hidden' : ''}`}>文档工作台</span>
+          </Link>
+          <button
+            onClick={() => setCollapsed(true)}
+            className={`ml-auto hidden rounded-md p-1 text-gray-400 hover:bg-gray-100 md:block ${rail ? 'md:hidden' : ''}`}
+            title="收起侧边栏"
+          >
+            <PanelLeftClose size={16} />
+          </button>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="ml-auto rounded-md p-1 text-gray-400 hover:bg-gray-100 md:hidden"
+            title="关闭菜单"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className={`flex gap-1 border-b border-gray-100 p-2 text-sm ${rail ? 'md:flex-col' : ''}`}>
+          {NAV.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setMobileOpen(false)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-2 py-1.5 ${
+                navActive(href) ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={label}
+            >
+              <Icon size={16} className="shrink-0" />
+              <span className={rail ? 'md:hidden' : ''}>{label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex-1 overflow-y-auto p-2">
+          <Section title="最近打开" collapsed={rail}>
+            {data.recent.length === 0 ? (
+              <p className={`px-2 text-xs text-gray-400 ${rail ? 'md:hidden' : ''}`}>暂无记录</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {data.recent.map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/viewer/${d.id}`}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-50 ${rail ? 'md:justify-center md:px-0' : ''}`}
+                      title={d.title}
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: TYPE_DOT[d.extension] ?? '#9ca3af' }} />
+                      <span className={`min-w-0 flex-1 truncate text-sm text-gray-700 ${rail ? 'md:hidden' : ''}`}>{d.title}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <div className={rail ? 'md:hidden' : ''}>
+            <Section title="文档分类">
+              <ManageList
+                api="/api/categories"
+                createLabel="新建分类"
+                items={data.categories}
+                hrefFor={(id) => `/?category=${id}`}
+              />
+            </Section>
+
+            <Section title="标签管理">
+              <ManageList api="/api/tags" createLabel="新建标签" items={data.tags} />
+            </Section>
+          </div>
+        </div>
+
+        <div className={`flex items-center gap-2 border-t border-gray-100 py-3 ${rail ? 'md:flex-col md:px-0' : 'px-4'}`}>
+          <span className={`min-w-0 flex-1 truncate text-sm text-gray-500 ${rail ? 'md:hidden' : ''}`}>{username}</span>
+          <button
+            onClick={logout}
+            className={`rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 ${rail ? 'md:hidden' : ''}`}
+          >
+            退出
+          </button>
+          {rail && (
+            <div className="hidden flex-col items-center gap-2 md:flex">
+              <button onClick={logout} title="退出登录" className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100">
+                <LogOut size={16} />
+              </button>
+              <button onClick={() => setCollapsed(false)} title="展开侧边栏" className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100">
+                <PanelLeftOpen size={16} />
+              </button>
+            </div>
           )}
-        </Section>
-
-        <Section title="文档分类">
-          <ManageList
-            api="/api/categories"
-            createLabel="新建分类"
-            items={data.categories}
-            hrefFor={(id) => `/?category=${id}`}
-          />
-        </Section>
-
-        <Section title="标签管理">
-          <ManageList api="/api/tags" createLabel="新建标签" items={data.tags} />
-        </Section>
-      </div>
-
-      <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-3">
-        <span className="min-w-0 flex-1 truncate text-sm text-gray-500">{username}</span>
-        <LogoutButton />
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }

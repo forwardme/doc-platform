@@ -10,6 +10,7 @@ import WordViewer from '@/components/office/WordViewer';
 import PrintButton from '@/components/PrintButton';
 import RecordOpen from '@/components/RecordOpen';
 import RenameButton from '@/components/RenameButton';
+import { ArrowLeft, Download, FileDown } from 'lucide-react';
 
 function formatSize(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -28,9 +29,9 @@ export default async function ViewerPage({ params }: { params: Promise<{ id: str
   return (
     <div>
       <RecordOpen id={doc.id} />
-      <div className="print:hidden mb-4 flex flex-wrap items-center gap-3">
-        <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
-          ← 返回
+      <div className="print:hidden mb-4 flex flex-wrap items-center gap-2">
+        <Link href="/" title="返回" className="rounded-md p-2 text-gray-500 hover:bg-gray-100">
+          <ArrowLeft size={16} />
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-base font-semibold" title={doc.title}>
           {doc.title}
@@ -41,17 +42,19 @@ export default async function ViewerPage({ params }: { params: Promise<{ id: str
         </span>
         <a
           href={`/api/documents/${doc.id}/file`}
-          className="rounded-md bg-gray-50 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+          title="下载原文件"
+          className="rounded-md bg-gray-50 p-2 text-gray-600 hover:bg-gray-100"
         >
-          下载原文件
+          <Download size={16} />
         </a>
         <PrintButton />
         {preview?.kind === 'pdf' && (
           <a
             href={`/api/documents/${doc.id}/export`}
-            className="rounded-md bg-blue-50 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-100"
+            title="下载标注版"
+            className="rounded-md bg-blue-50 p-2 text-blue-600 hover:bg-blue-100"
           >
-            下载标注版
+            <FileDown size={16} />
           </a>
         )}
       </div>

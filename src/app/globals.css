@@ -11,6 +11,11 @@ body {
   height: 100%;
 }
 
+/* 隐藏 Next.js 开发模式右下角/左下角的加载指示器（Logo 角标）——仅 next dev 存在，纯装饰 */
+[data-next-mark-loading] {
+  display: none !important;
+}
+
 /* 让 PDF 手写层在指针按下时也保持平滑 */
 .annotation-layer {
   touch-action: none;

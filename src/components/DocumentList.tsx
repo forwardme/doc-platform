@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
 import RenameButton from './RenameButton';
+import Thumb from './Thumb';
+import { useLocalStorage } from '@/lib/useLocalStorage';
 
 interface Doc {
   id: number;
@@ -39,6 +42,9 @@ const TYPE_LABEL: Record<string, string> = {
   ods: 'ODS',
 };
 
+type SortKey = 'title' | 'category' | 'size' | 'updated_at';
+type SortDir = 'asc' | 'desc';
+
 function formatSize(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -49,6 +55,37 @@ function formatDate(s: string): string {
   const d = new Date(s.endsWith('Z') ? s : s + 'Z');
   if (Number.isNaN(d.getTime())) return s;
   return d.toLocaleString('zh-CN', { hour12: false });
+}
+
+function SortHeader(props: {
+  label: string;
+  k: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onToggle: (k: SortKey) => void;
+}) {
+  const { label, k, sortKey, sortDir, onToggle } = props;
+  const active = sortKey === k;
+  return (
+    <th className="px-3 py-2 text-left">
+      <button
+        onClick={() => onToggle(k)}
+        className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+        title={`按${label}排序`}
+      >
+        {label}
+        {active ? (
+          sortDir === 'asc' ? (
+            <ArrowUp size={12} />
+          ) : (
+            <ArrowDown size={12} />
+          )
+        ) : (
+          <ArrowUpDown size={12} className="text-gray-300" />
+        )}
+      </button>
+    </th>
+  );
 }
 
 export default function DocumentList() {
@@ -67,6 +104,10 @@ export default function DocumentList() {
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const [selCat, setSelCat] = useState<number | 'none' | 'new'>('none');
   const [newCatName, setNewCatName] = useState('');
+
+  const [view, setView] = useLocalStorage<'card' | 'list'>('doclist-view', 'card');
+  const [sortKey, setSortKey] = useLocalStorage<SortKey>('doclist-sort', 'updated_at');
+  const [sortDir, setSortDir] = useLocalStorage<SortDir>('doclist-sortdir', 'desc');
 
   const load = useCallback(async (query: string, cat: number | null) => {
     setLoading(true);
@@ -93,6 +134,36 @@ export default function DocumentList() {
     const t = setTimeout(() => load(q, categoryId), q ? 250 : 0);
     return () => clearTimeout(t);
   }, [q, categoryId, load]);
+
+  const catMap = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats]);
+
+  const sorted = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...docs].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'title') {
+        cmp = a.title.localeCompare(b.title, 'zh-CN');
+      } else if (sortKey === 'category') {
+        const na = catMap.get(a.category_id ?? -1)?.name ?? '';
+        const nb = catMap.get(b.category_id ?? -1)?.name ?? '';
+        cmp = na.localeCompare(nb, 'zh-CN');
+      } else if (sortKey === 'size') {
+        cmp = a.size - b.size;
+      } else {
+        cmp = a.updated_at < b.updated_at ? -1 : a.updated_at > b.updated_at ? 1 : 0;
+      }
+      return dir * cmp;
+    });
+  }, [docs, catMap, sortKey, sortDir]);
+
+  function toggleSort(k: SortKey) {
+    if (sortKey === k) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+      return;
+    }
+    setSortKey(k);
+    setSortDir(k === 'title' || k === 'category' ? 'asc' : 'desc');
+  }
 
   async function onFilesChosen(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -157,6 +228,25 @@ export default function DocumentList() {
 
   const currentCategory = cats.find((c) => c.id === categoryId);
 
+  const viewToggle = (
+    <div className="flex items-center gap-0.5 rounded-md border border-gray-300 p-0.5">
+      <button
+        onClick={() => setView('card')}
+        title="卡片视图"
+        className={`rounded p-1.5 ${view === 'card' ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}
+      >
+        <LayoutGrid size={16} />
+      </button>
+      <button
+        onClick={() => setView('list')}
+        title="列表视图"
+        className={`rounded p-1.5 ${view === 'list' ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}
+      >
+        <List size={16} />
+      </button>
+    </div>
+  );
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -178,6 +268,7 @@ export default function DocumentList() {
             </Link>
           </span>
         )}
+        {viewToggle}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
@@ -203,64 +294,134 @@ export default function DocumentList() {
         <div className="rounded-lg border border-dashed border-gray-300 py-20 text-center text-sm text-gray-400">
           {q || categoryId ? '没有匹配的文档' : '还没有文档，点击右上角「上传文档」开始'}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {docs.map((d) => {
-            const cat = cats.find((c) => c.id === d.category_id);
-            return (
-              <div key={d.id} className="flex flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={`/viewer/${d.id}`}
-                        className="block min-w-0 truncate text-sm font-medium text-gray-900 hover:text-blue-600"
-                        title={d.title}
-                      >
-                        {d.title}
-                      </Link>
-                      <RenameButton
-                        id={d.id}
-                        title={d.title}
-                        className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        onRenamed={(t) => setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, title: t } : x)))}
-                      />
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px]">
-                        {TYPE_LABEL[d.extension] ?? d.extension.toUpperCase()}
-                      </span>
-                      <span>{formatSize(d.size)}</span>
-                      {cat && (
-                        <span className="inline-flex items-center gap-1">
+      ) : view === 'list' ? (
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <SortHeader label="名称" k="title" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                <SortHeader label="类别" k="category" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                <SortHeader label="大小" k="size" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                <SortHeader label="编辑时间" k="updated_at" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((d) => {
+                const cat = catMap.get(d.category_id ?? -1);
+                return (
+                  <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="max-w-[280px] px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/viewer/${d.id}`}
+                          className="truncate font-medium text-gray-900 hover:text-blue-600"
+                          title={d.title}
+                        >
+                          {d.title}
+                        </Link>
+                        <RenameButton
+                          id={d.id}
+                          title={d.title}
+                          className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          onRenamed={(t) => setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, title: t } : x)))}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400">{TYPE_LABEL[d.extension] ?? d.extension.toUpperCase()}</span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {cat ? (
+                        <span className="inline-flex items-center gap-1 text-sm text-gray-600">
                           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
                           {cat.name}
                         </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
                       )}
-                      {d.status === 'no_preview' && (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700" title="缺少预览（可能未安装 LibreOffice）">
-                          仅存储
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-600">{formatSize(d.size)}</td>
+                    <td className="px-3 py-2 text-sm text-gray-500">{formatDate(d.updated_at)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-2 text-xs">
+                        <Link href={`/viewer/${d.id}`} className="rounded-md bg-blue-50 px-2.5 py-1 text-blue-700 hover:bg-blue-100">
+                          查看
+                        </Link>
+                        <a href={`/api/documents/${d.id}/file`} className="rounded-md bg-gray-50 px-2.5 py-1 text-gray-600 hover:bg-gray-100">
+                          下载
+                        </a>
+                        <button onClick={() => onDelete(d.id)} className="rounded-md px-2.5 py-1 text-red-500 hover:bg-red-50">
+                          删除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {sorted.map((d) => {
+            const cat = catMap.get(d.category_id ?? -1);
+            return (
+              <div key={d.id} className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow">
+                <Thumb docId={d.id} extension={d.extension} />
+
+                <div className="flex flex-1 flex-col p-4">
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/viewer/${d.id}`}
+                          className="block min-w-0 truncate text-sm font-medium text-gray-900 hover:text-blue-600"
+                          title={d.title}
+                        >
+                          {d.title}
+                        </Link>
+                        <RenameButton
+                          id={d.id}
+                          title={d.title}
+                          className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          onRenamed={(t) => setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, title: t } : x)))}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px]">
+                          {TYPE_LABEL[d.extension] ?? d.extension.toUpperCase()}
                         </span>
-                      )}
+                        <span>{formatSize(d.size)}</span>
+                        {cat && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                            {cat.name}
+                          </span>
+                        )}
+                        {d.status === 'no_preview' && (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700" title="缺少预览（可能未安装 LibreOffice）">
+                            仅存储
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {d.snippet ? (
-                  <div className="mb-3 line-clamp-2 text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: d.snippet }} />
-                ) : null}
+                  {d.snippet ? (
+                    <div className="mb-3 line-clamp-2 text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: d.snippet }} />
+                  ) : null}
 
-                <div className="mt-auto flex items-center gap-2 text-xs">
-                  <Link href={`/viewer/${d.id}`} className="rounded-md bg-blue-50 px-2.5 py-1 text-blue-700 hover:bg-blue-100">
-                    查看
-                  </Link>
-                  <a href={`/api/documents/${d.id}/file`} className="rounded-md bg-gray-50 px-2.5 py-1 text-gray-600 hover:bg-gray-100">
-                    下载
-                  </a>
-                  <span className="ml-auto text-gray-300">{formatDate(d.updated_at)}</span>
-                  <button onClick={() => onDelete(d.id)} className="rounded-md px-2.5 py-1 text-red-500 hover:bg-red-50">
-                    删除
-                  </button>
+                  <div className="mt-auto flex items-center gap-2 text-xs">
+                    <Link href={`/viewer/${d.id}`} className="rounded-md bg-blue-50 px-2.5 py-1 text-blue-700 hover:bg-blue-100">
+                      查看
+                    </Link>
+                    <a href={`/api/documents/${d.id}/file`} className="rounded-md bg-gray-50 px-2.5 py-1 text-gray-600 hover:bg-gray-100">
+                      下载
+                    </a>
+                    <span className="ml-auto text-gray-300">{formatDate(d.updated_at)}</span>
+                    <button onClick={() => onDelete(d.id)} className="rounded-md px-2.5 py-1 text-red-500 hover:bg-red-50">
+                      删除
+                    </button>
+                  </div>
                 </div>
               </div>
             );

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CellValue, SheetData } from '@/lib/office';
 import PrintButton from '../PrintButton';
+import { Loader2, Save } from 'lucide-react';
 
 /** 列号 → 列字母（0 → A，25 → Z，26 → AA）。 */
 function colLetter(idx: number): string {
@@ -117,9 +118,10 @@ export default function ExcelViewer({ documentId }: { documentId: number }) {
           <button
             onClick={save}
             disabled={saving}
-            className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            title="保存"
+            className="rounded-md bg-green-600 p-1.5 text-white hover:bg-green-700 disabled:opacity-50"
           >
-            {saving ? '保存中…' : '保存'}
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           </button>
           <PrintButton />
         </div>
