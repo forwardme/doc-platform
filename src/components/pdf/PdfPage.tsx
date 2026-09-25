@@ -35,6 +35,8 @@ interface Props {
   onEraseEnd: () => void;
   onSelectText: (sel: TextSelection | null) => void;
   onPageSize?: (size: { w: number; h: number }) => void;
+  findRects?: { x: number; y: number; w: number; h: number }[];
+  findCurrent?: { x: number; y: number; w: number; h: number }[];
 }
 
 /** 把选区产生的零碎 rect 按行合并为行矩形。 */
@@ -81,6 +83,8 @@ export default function PdfPage(props: Props) {
     onEraseEnd,
     onSelectText,
     onPageSize,
+    findRects = [],
+    findCurrent = [],
   } = props;
 
   const [holderRef, inView] = useInView<HTMLDivElement>('1000px');
@@ -273,6 +277,30 @@ export default function PdfPage(props: Props) {
                 </span>
               ))}
             </div>
+          )}
+          {(findRects.length > 0 || findCurrent.length > 0) && (
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox={`0 0 ${size.w} ${size.h}`}
+              preserveAspectRatio="none"
+            >
+              {findRects.map((r, i) => (
+                <rect key={`f${i}`} x={r.x} y={r.y} width={r.w} height={r.h} fill="#fbbf24" opacity={0.35} />
+              ))}
+              {findCurrent.map((r, i) => (
+                <rect
+                  key={`c${i}`}
+                  x={r.x}
+                  y={r.y}
+                  width={r.w}
+                  height={r.h}
+                  fill="#f97316"
+                  opacity={0.55}
+                  stroke="#ea580c"
+                  strokeWidth={1}
+                />
+              ))}
+            </svg>
           )}
           <AnnotationLayer
             pageNumber={pageNumber}

@@ -7,6 +7,8 @@ import SelectedPanel from './SelectedPanel';
 import SelectionToolbar from './SelectionToolbar';
 import type { Annotation, TextSelection, Tool, Tag } from './types';
 import {
+  ChevronDown,
+  ChevronUp,
   Eraser,
   GripHorizontal,
   Highlighter,
@@ -14,14 +16,18 @@ import {
   MoveVertical,
   MousePointer2,
   Pen,
+  Search,
   StickyNote,
   Undo2,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import IconButton from '@/components/ui/IconButton';
 import { useLocalStorage } from '@/lib/useLocalStorage';
+import { loadPageText, mergeCharRects } from './findText';
+import type { FindMatch, PageText, Rect } from './findText';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
@@ -68,6 +74,16 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
   );
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+
+  // —— 查找：按页缓存文本，搜索匹配并定位/高亮 ——
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [findMatches, setFindMatches] = useState<FindMatch[]>([]);
+  const [findIndex, setFindIndex] = useState(0);
+  const [findBusy, setFindBusy] = useState(false);
+  const findPagesRef = useRef<Map<number, PageText>>(new Map());
+  const findTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const findReqRef = useRef(0);
 
   // 加载 PDF
   useEffect(() => {
@@ -271,6 +287,83 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
     [selection, color, addAnnotation, clearSelection],
   );
 
+  // —— 查找：搜索所有页文本（逐页缓存），返回匹配（页号 + 高亮矩形）——
+  const runFind = useCallback(
+    async (raw: string) => {
+      if (!pdfDoc) return;
+      const q = raw.trim();
+      const req = ++findReqRef.current;
+      if (!q) {
+        setFindMatches([]);
+        setFindIndex(0);
+        setFindBusy(false);
+        return;
+      }
+      setFindBusy(true);
+      const matches: FindMatch[] = [];
+      const lower = q.toLowerCase();
+      for (let n = 1; n <= pageCount; n++) {
+        let pt = findPagesRef.current.get(n);
+        if (!pt) {
+          try {
+            const page = await pdfDoc.getPage(n);
+            pt = await loadPageText(page, n);
+            findPagesRef.current.set(n, pt);
+          } catch {
+            continue;
+          }
+        }
+        const lowerText = pt.text.toLowerCase();
+        let idx = lowerText.indexOf(lower);
+        while (idx !== -1) {
+          if (req !== findReqRef.current) return;
+          matches.push({ page: n, rects: mergeCharRects(pt.chars.slice(idx, idx + q.length)) });
+          idx = lowerText.indexOf(lower, idx + 1);
+        }
+      }
+      if (req !== findReqRef.current) return;
+      setFindMatches(matches);
+      setFindIndex(0);
+      setFindBusy(false);
+    },
+    [pdfDoc, pageCount],
+  );
+
+  // 输入防抖后执行查找
+  useEffect(() => {
+    if (!findOpen) return;
+    if (findTimerRef.current) clearTimeout(findTimerRef.current);
+    const q = findQuery;
+    if (!q.trim()) {
+      findReqRef.current++;
+      setFindMatches([]);
+      setFindIndex(0);
+      setFindBusy(false);
+      return;
+    }
+    setFindBusy(true);
+    findTimerRef.current = setTimeout(() => {
+      void runFind(q);
+    }, 200);
+    return () => {
+      if (findTimerRef.current) clearTimeout(findTimerRef.current);
+    };
+  }, [findQuery, findOpen, runFind]);
+
+  function gotoMatch(i: number) {
+    if (findMatches.length === 0) return;
+    const idx = ((i % findMatches.length) + findMatches.length) % findMatches.length;
+    setFindIndex(idx);
+    const m = findMatches[idx];
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-page="${m.page}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+  const findPrev = () => gotoMatch(findIndex - 1);
+  const findNext = () => gotoMatch(findIndex + 1);
+
   // —— 浮动工具栏：首次居中（移动端贴底）、拖动、吸附边框 ——
   useEffect(() => {
     if (tpos.inited || !pdfDoc) return;
@@ -321,6 +414,15 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
   }, [tool, clearSelection]);
 
   const selected = annotations.find((a) => a.id === selectedId) ?? null;
+
+  // 查找匹配按页分组 + 当前匹配
+  const findRectsByPage = new Map<number, Rect[]>();
+  for (const m of findMatches) {
+    const arr = findRectsByPage.get(m.page) ?? [];
+    arr.push(...m.rects);
+    findRectsByPage.set(m.page, arr);
+  }
+  const currentFind = findMatches[findIndex] ?? null;
 
   if (error) {
     return <div className="rounded-lg bg-red-50 p-8 text-center text-red-600">{error}</div>;
@@ -434,6 +536,15 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
           </div>
 
           <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
+          <IconButton
+            icon={Search}
+            label="查找"
+            description="在文档中查找文字"
+            active={findOpen}
+            onClick={() => setFindOpen((v) => !v)}
+          />
+
+          <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
           <div className="flex shrink-0 items-center gap-1">
             <input
               type="range"
@@ -448,6 +559,34 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
           </div>
         </div>
       </div>
+
+      {/* 查找面板 */}
+      {findOpen && (
+        <div className="print:hidden fixed right-3 top-16 z-40 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
+          <input
+            autoFocus
+            value={findQuery}
+            onChange={(e) => setFindQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (e.shiftKey) findPrev();
+                else findNext();
+              } else if (e.key === 'Escape') {
+                setFindOpen(false);
+              }
+            }}
+            placeholder="查找…"
+            className="w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none sm:w-48"
+          />
+          <span className="min-w-[3.5rem] text-center text-xs tabular-nums text-gray-500">
+            {findBusy ? '…' : findMatches.length > 0 ? `${findIndex + 1}/${findMatches.length}` : findQuery.trim() ? '0/0' : ''}
+          </span>
+          <IconButton icon={ChevronUp} label="上一个" onClick={findPrev} />
+          <IconButton icon={ChevronDown} label="下一个" onClick={findNext} />
+          <IconButton icon={X} label="关闭查找" onClick={() => setFindOpen(false)} />
+        </div>
+      )}
 
       {/* 页面 */}
       <div className="space-y-4">
@@ -470,6 +609,8 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
               onEraseEnd={finishErase}
               onSelectText={onSelectText}
               onPageSize={onPageSize}
+              findRects={findRectsByPage.get(n) ?? []}
+              findCurrent={currentFind?.page === n ? currentFind.rects : []}
             />
           </div>
         ))}
