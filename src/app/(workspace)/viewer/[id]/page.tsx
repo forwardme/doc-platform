@@ -66,7 +66,7 @@ export default async function ViewerPage({ params }: { params: Promise<{ id: str
       ) : preview?.kind === 'md' ? (
         <MarkdownViewer content={fs.readFileSync(preview.path, 'utf8')} />
       ) : preview?.kind === 'pdf' ? (
-        <PdfViewer documentId={doc.id} initialAnnotations={annotations} />
+        <PdfViewer documentId={doc.id} initialAnnotations={annotations} bodyStartPage={doc.body_start_page} />
       ) : (
         <div className="rounded-lg border border-dashed border-gray-300 py-20 text-center text-sm text-gray-400">
           该文档暂无可预览内容。

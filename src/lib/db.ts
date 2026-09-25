@@ -29,6 +29,7 @@ function migrate(db: DatabaseSync) {
       status        TEXT NOT NULL DEFAULT 'ready', -- ready | no_preview | failed
       category_id   INTEGER,                      -- 所属分类（可空）
       last_opened_at TEXT,                        -- 最近打开时间
+      body_start_page INTEGER NOT NULL DEFAULT 1, -- 图书正文起始页（PDF 页，正文从 1 重排，之前为目录）
       created_at    TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -90,6 +91,7 @@ function migrate(db: DatabaseSync) {
   for (const ddl of [
     `ALTER TABLE documents ADD COLUMN category_id INTEGER`,
     `ALTER TABLE documents ADD COLUMN last_opened_at TEXT`,
+    `ALTER TABLE documents ADD COLUMN body_start_page INTEGER NOT NULL DEFAULT 1`,
   ]) {
     try {
       db.exec(ddl);

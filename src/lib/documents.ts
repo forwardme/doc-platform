@@ -20,12 +20,13 @@ export interface DocumentRow {
   size: number;
   status: string;
   category_id: number | null;
+  body_start_page: number;
   created_at: string;
   updated_at: string;
 }
 
 const DOC_COLS =
-  'id, title, original_name, extension, mime_type, size, status, category_id, created_at, updated_at';
+  'id, title, original_name, extension, mime_type, size, status, category_id, body_start_page, created_at, updated_at';
 
 function rowToDocument(r: any): DocumentRow {
   return {
@@ -37,6 +38,7 @@ function rowToDocument(r: any): DocumentRow {
     size: r.size,
     status: r.status,
     category_id: r.category_id ?? null,
+    body_start_page: r.body_start_page ?? 1,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -83,6 +85,16 @@ export function renameDocument(id: number, title: string): DocumentRow | null {
 /** 记录「最近打开」时间戳。 */
 export function touchDocument(id: number): void {
   getDb().prepare(`UPDATE documents SET last_opened_at = datetime('now') WHERE id = ?`).run(id);
+}
+
+/** 设置图书正文起始页（PDF 页，正文从 1 重排）。 */
+export function setBodyStartPage(id: number, bodyStartPage: number): DocumentRow | null {
+  const n = Math.max(1, Math.floor(bodyStartPage));
+  const res = getDb()
+    .prepare(`UPDATE documents SET body_start_page = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(n, id);
+  if (res.changes === 0) return null;
+  return getDocument(id);
 }
 
 /** 获取文档的预览文件（PDF 或 MD）信息。 */

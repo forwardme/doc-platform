@@ -28,6 +28,7 @@ import IconButton from '@/components/ui/IconButton';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 import { loadPageText, mergeCharRects } from './findText';
 import type { FindMatch, PageText, Rect } from './findText';
+import PageBadge from './PageBadge';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
@@ -47,9 +48,10 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 interface Props {
   documentId: number;
   initialAnnotations: Annotation[];
+  bodyStartPage: number;
 }
 
-export default function PdfViewer({ documentId, initialAnnotations }: Props) {
+export default function PdfViewer({ documentId, initialAnnotations, bodyStartPage }: Props) {
   const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [error, setError] = useState('');
@@ -62,6 +64,7 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [eraserSize, setEraserSize] = useState(12);
   const [selection, setSelection] = useState<TextSelection | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const annotationsRef = useRef(annotations);
   annotationsRef.current = annotations;
@@ -106,6 +109,40 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
   }, []);
+
+  // 跟踪当前可见页（供页码浮标）：取第一个底部越过视口上方判断线的页
+  useEffect(() => {
+    if (!pdfDoc || pageCount === 0) return;
+    let raf = 0;
+    let cur = 0;
+    const update = () => {
+      raf = 0;
+      const els = document.querySelectorAll<HTMLElement>('[data-page]');
+      const line = window.innerHeight * 0.25;
+      let found = 1;
+      for (const el of els) {
+        if (el.getBoundingClientRect().bottom >= line) {
+          found = Number(el.dataset.page) || 1;
+          break;
+        }
+      }
+      if (found !== cur) {
+        cur = found;
+        setCurrentPage(found);
+      }
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', schedule, { passive: true, capture: true });
+    window.addEventListener('resize', schedule);
+    update();
+    return () => {
+      window.removeEventListener('scroll', schedule, { capture: true });
+      window.removeEventListener('resize', schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [pdfDoc, pageCount]);
 
   // 从标签索引跳转（?ann=id）：选中并滚动到对应页面
   useEffect(() => {
@@ -624,6 +661,13 @@ export default function PdfViewer({ documentId, initialAnnotations }: Props) {
         onDelete={() => selected && deleteAnnotation(selected.id)}
         onAddTag={(name) => selected && addTag(selected.id, name)}
         onRemoveTag={(name) => selected && removeTag(selected.id, name)}
+      />
+
+      <PageBadge
+        documentId={documentId}
+        currentPage={currentPage}
+        pageCount={pageCount}
+        bodyStart={bodyStartPage}
       />
 
       {selection && (
