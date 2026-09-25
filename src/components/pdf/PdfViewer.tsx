@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   Eraser,
-  GripHorizontal,
   Highlighter,
   MoveHorizontal,
   MoveVertical,
@@ -71,12 +70,10 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pageSizeRef = useRef<{ w: number; h: number } | null>(null);
-  const [tpos, setTpos] = useLocalStorage<{ x: number; y: number; scale: number; inited: boolean }>(
-    'pdf-toolbar',
-    { x: 0, y: 0, scale: 1, inited: false },
-  );
-  const panelRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const [pageSize, setPageSize] = useState<{ w: number; h: number } | null>(null);
+  // 工具栏：阅读时的不透明度（透明度 = 1 - opacity），鼠标悬浮时恢复不透明
+  const [tbOpacity, setTbOpacity] = useLocalStorage('pdf-toolbar-opacity', 0.4);
+  const [tbHover, setTbHover] = useState(false);
 
   // —— 查找：按页缓存文本，搜索匹配并定位/高亮 ——
   const [findOpen, setFindOpen] = useState(false);
@@ -294,6 +291,7 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   // —— 适配宽度 / 适配页面 ——
   const onPageSize = useCallback((s: { w: number; h: number }) => {
     pageSizeRef.current = s;
+    setPageSize(s);
   }, []);
 
   const fitWidth = useCallback(() => {
@@ -401,50 +399,6 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   const findPrev = () => gotoMatch(findIndex - 1);
   const findNext = () => gotoMatch(findIndex + 1);
 
-  // —— 浮动工具栏：首次居中（移动端贴底）、拖动、吸附边框 ——
-  useEffect(() => {
-    if (tpos.inited || !pdfDoc) return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const w = panel.offsetWidth || 340;
-    const h = panel.offsetHeight || 48;
-    const isMobile = window.innerWidth < 768;
-    const x = Math.max(8, Math.round((window.innerWidth - w) / 2));
-    const y = isMobile ? Math.max(8, window.innerHeight - h - 8) : 8;
-    setTpos({ x, y, scale: 1, inited: true });
-  }, [tpos.inited, pdfDoc, setTpos]);
-
-  function onGripDown(e: React.PointerEvent) {
-    dragRef.current = { sx: e.clientX, sy: e.clientY, ox: tpos.x, oy: tpos.y };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }
-
-  function onGripMove(e: React.PointerEvent) {
-    const d = dragRef.current;
-    if (!d) return;
-    setTpos({ ...tpos, x: d.ox + (e.clientX - d.sx), y: d.oy + (e.clientY - d.sy) });
-  }
-
-  function onGripUp() {
-    if (!dragRef.current) return;
-    dragRef.current = null;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const rect = panel.getBoundingClientRect();
-    const M = 8;
-    const distTop = rect.top;
-    const distBottom = window.innerHeight - rect.bottom;
-    const distLeft = rect.left;
-    const distRight = window.innerWidth - rect.right;
-    const min = Math.min(distTop, distBottom, distLeft, distRight);
-    const nx = clamp(rect.left, M, window.innerWidth - rect.width - M);
-    const ny = clamp(rect.top, M, window.innerHeight - rect.height - M);
-    if (min === distTop) setTpos({ ...tpos, x: nx, y: M });
-    else if (min === distBottom) setTpos({ ...tpos, x: nx, y: window.innerHeight - rect.height - M });
-    else if (min === distLeft) setTpos({ ...tpos, x: M, y: ny });
-    else setTpos({ ...tpos, x: window.innerWidth - rect.width - M, y: ny });
-  }
-
   // 切换工具时清除选区
   useEffect(() => {
     if (tool !== 'text') clearSelection();
@@ -470,25 +424,18 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
 
   return (
     <div ref={viewerRef}>
-      {/* 浮动工具栏（可拖动、吸附边框、缩放） */}
+      {/* 顶部工具栏：与 PDF 页面等宽，随滚动吸附视口顶部，阅读时半透明，悬浮时不透明 */}
       <div
-        ref={panelRef}
-        className="print:hidden fixed z-40"
-        style={{ left: tpos.x, top: tpos.y, zoom: tpos.scale }}
+        className="print:hidden sticky top-2 z-40 mx-auto transition-opacity duration-200"
+        style={{
+          width: pageSize ? Math.round(pageSize.w * zoom) : undefined,
+          maxWidth: '100%',
+          opacity: tbHover ? 1 : tbOpacity,
+        }}
+        onMouseEnter={() => setTbHover(true)}
+        onMouseLeave={() => setTbHover(false)}
       >
-        <div className="flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-0.5 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
-          <button
-            onPointerDown={onGripDown}
-            onPointerMove={onGripMove}
-            onPointerUp={onGripUp}
-            onPointerCancel={onGripUp}
-            title="拖动工具栏"
-            aria-label="拖动工具栏"
-            className="shrink-0 cursor-grab touch-none rounded p-1.5 text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
-          >
-            <GripHorizontal size={16} />
-          </button>
-
+        <div className="flex flex-wrap items-center justify-center gap-0.5 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
           {TOOLS.map((t) => (
             <IconButton
               key={t.key}
@@ -585,12 +532,12 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
           <div className="flex shrink-0 items-center gap-1">
             <input
               type="range"
-              min={0.8}
-              max={1.5}
-              step={0.1}
-              value={tpos.scale}
-              onChange={(e) => setTpos({ ...tpos, scale: Number(e.target.value) })}
-              title={`工具栏大小 ${Math.round(tpos.scale * 100)}%`}
+              min={0.2}
+              max={1}
+              step={0.05}
+              value={tbOpacity}
+              onChange={(e) => setTbOpacity(Number(e.target.value))}
+              title={`工具栏透明度 ${Math.round((1 - tbOpacity) * 100)}%（悬浮时不透明）`}
               className="w-14"
             />
           </div>
@@ -626,7 +573,7 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
       )}
 
       {/* 页面 */}
-      <div className="space-y-4">
+      <div className="space-y-4 pt-4">
         {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
           <div key={n} data-page={n} className="flex justify-center">
             <PdfPage
