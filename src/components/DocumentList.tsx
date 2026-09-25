@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
 import RenameButton from './RenameButton';
+import CategoryBadge from './CategoryBadge';
 import Thumb from './Thumb';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 
@@ -124,10 +125,15 @@ export default function DocumentList() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/categories')
-      .then((r) => r.json())
-      .then((d) => setCats(d.categories ?? []))
-      .catch(() => {});
+    const fetchCats = () =>
+      fetch('/api/categories')
+        .then((r) => r.json())
+        .then((d) => setCats(d.categories ?? []))
+        .catch(() => {});
+    fetchCats();
+    // 侧边栏新建/重命名/删除分类后同步刷新
+    window.addEventListener('pdfsite:changed', fetchCats);
+    return () => window.removeEventListener('pdfsite:changed', fetchCats);
   }, []);
 
   useEffect(() => {
@@ -226,6 +232,15 @@ export default function DocumentList() {
     await load(q, categoryId);
   }
 
+  // 重新分类后本地同步：若当前按分类过滤且文档被移出该分类，则从列表移除
+  function onCategoryChanged(docId: number, newCatId: number | null) {
+    setDocs((prev) =>
+      categoryId != null && newCatId !== categoryId
+        ? prev.filter((x) => x.id !== docId)
+        : prev.map((x) => (x.id === docId ? { ...x, category_id: newCatId } : x)),
+    );
+  }
+
   const currentCategory = cats.find((c) => c.id === categoryId);
 
   const viewToggle = (
@@ -308,7 +323,6 @@ export default function DocumentList() {
             </thead>
             <tbody>
               {sorted.map((d) => {
-                const cat = catMap.get(d.category_id ?? -1);
                 return (
                   <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="max-w-[280px] px-3 py-2">
@@ -330,14 +344,12 @@ export default function DocumentList() {
                       <span className="text-xs text-gray-400">{TYPE_LABEL[d.extension] ?? d.extension.toUpperCase()}</span>
                     </td>
                     <td className="px-3 py-2">
-                      {cat ? (
-                        <span className="inline-flex items-center gap-1 text-sm text-gray-600">
-                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                          {cat.name}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
+                      <CategoryBadge
+                        docId={d.id}
+                        categoryId={d.category_id}
+                        categories={cats}
+                        onChanged={(cid) => onCategoryChanged(d.id, cid)}
+                      />
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-600">{formatSize(d.size)}</td>
                     <td className="px-3 py-2 text-sm text-gray-500">{formatDate(d.updated_at)}</td>
@@ -363,7 +375,6 @@ export default function DocumentList() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((d) => {
-            const cat = catMap.get(d.category_id ?? -1);
             return (
               <div key={d.id} className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow">
                 <Thumb docId={d.id} extension={d.extension} />
@@ -391,12 +402,12 @@ export default function DocumentList() {
                           {TYPE_LABEL[d.extension] ?? d.extension.toUpperCase()}
                         </span>
                         <span>{formatSize(d.size)}</span>
-                        {cat && (
-                          <span className="inline-flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                            {cat.name}
-                          </span>
-                        )}
+                        <CategoryBadge
+                          docId={d.id}
+                          categoryId={d.category_id}
+                          categories={cats}
+                          onChanged={(cid) => onCategoryChanged(d.id, cid)}
+                        />
                         {d.status === 'no_preview' && (
                           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700" title="缺少预览（可能未安装 LibreOffice）">
                             仅存储

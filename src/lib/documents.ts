@@ -87,6 +87,20 @@ export function touchDocument(id: number): void {
   getDb().prepare(`UPDATE documents SET last_opened_at = datetime('now') WHERE id = ?`).run(id);
 }
 
+/** 设置文档所属分类（null 表示移出分类）；分类不存在时返回 null。 */
+export function setDocumentCategory(id: number, categoryId: number | null): DocumentRow | null {
+  const db = getDb();
+  if (categoryId != null) {
+    const exists = db.prepare(`SELECT id FROM categories WHERE id = ?`).get(categoryId);
+    if (!exists) return null;
+  }
+  const res = db
+    .prepare(`UPDATE documents SET category_id = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(categoryId, id);
+  if (res.changes === 0) return null;
+  return getDocument(id);
+}
+
 /** 设置图书正文起始页（PDF 页，正文从 1 重排）。 */
 export function setBodyStartPage(id: number, bodyStartPage: number): DocumentRow | null {
   const n = Math.max(1, Math.floor(bodyStartPage));
