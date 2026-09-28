@@ -1,0 +1,912 @@
+{
+  "summary": {
+    "docId": 1,
+    "docTitle": "Patient-level reclassification and discordancebetween SOFA and SOFA-2: a multicenter ICUstudy",
+    "model": "kimi-k3",
+    "baseUrl": "https://api.moonshot.cn/anthropic",
+    "timestamp": "2026-09-28T10:49:50.085Z",
+    "bodyStartPage": 1,
+    "pageCount": 10,
+    "judgedPages": 10,
+    "avgCompleteness": 90,
+    "avgOverall": 53.9,
+    "pagesOrderOk": 2,
+    "figureStatusCounts": {
+      "missed": 3,
+      "spurious": 4,
+      "split": 1,
+      "correct": 2
+    },
+    "tableStatusCounts": {
+      "mixed_into_text": 2
+    }
+  },
+  "diagnosis": "# 《Patient-level reclassification and discordance between SOFA and SOFA-2》提取质量总体诊断\n\n## 总体结论\n\n**整体质量：不合格（仅适合\"文字存在性\"检索，不适合阅读与下游结构化使用）。**\n\n| 指标 | 结果 |\n|---|---|\n| 平均总分 | **53.9 / 100** |\n| 平均完整度 | 90.0 / 100 |\n| 阅读顺序正确页 | 仅 **2 / 10**（P3、P10） |\n| 60 分以下页面 | **7 页**（P2=32、P4=35、P9=38、P5=40、P7=45、P8=52、P6=58） |\n| 70 分以上页面 | 3 页（P1=80、P3=70、P10=89） |\n\n核心矛盾：**文字完整度高达 90 分，但总分仅 53.9 分**——提取器\"几乎每个词都抓到了，但大量页面词的排列是错的\"。双栏逐行交错、表格拆碎、图片拆分/错挂三类版式问题叠加，使 7 个页面的正文实际不可读，对医学文献这类数据敏感场景存在误导风险（如 P7 表格 P 值错挂）。\n\n---\n\n## 三类典型问题\n\n### 1️⃣ 表格混入正文（mixed_into_text）—— ✅ 出现，且全军覆没\n\n- **出现页：P3（Table 1）、P7（Table 2）**——文档共 2 个表格，**2/2 全部中招**。\n- **P3 / Table 1**：表题、全部行列数据、脚注以流式段落混入正文，行列对齐结构完全丢失；行标签被换行拆散（\"Non-Invasive 3024 (2.2)\" 与 \"Positive Pressure Ventilation\" 分离、\"Invasive Mechan-\"/\"ical Ventilation\" 断行）；残留断字痕迹（Mechan- ical、Bal- loon、twosided）；页脚混入表格脚注末尾。\n- **P7 / Table 2（更严重）**：表格被拆成 8 个段落——左半表（SOFA-2 Matching）带行标签先出，右半表（SOFA Matching）退化为 6 个**无行标签的孤立数字段落**；左半多行 P 值脱落后**错挂到右半表数值之前**，数值与行标签的对应关系被破坏，数据不可用且有误读风险。\n\n### 2️⃣ 大图被拆分成多张小图（split）—— ✅ 出现\n\n- **出现页：P3、P4、P5**（涉及 Figure 1、Figure 2；Figure 3、Figure 4 完整）。\n- **Figure 1（原图在 P4）——拆分 + 跨页错挂 + 本页漏提，三重故障**：\n  - 被拆成 **4 张碎片**（1 张含 Brain/Respiratory/Cardiovascular 3 个面板，另 3 张各含 1 个面板，**拆分粒度不一致**）；\n  - 4 张碎片全部**错挂到原本无插图的 P3**（疑因 P3 正文引用了 \"Figure 1 shows...\"）；\n  - P4 本页反而**整图及图注完全漏提**；\n  - P3 图注在句中被截断，残留孤立词 \"transition\"。\n- **Figure 2（P5）**：被拆成\"六个热图面板\"与\"颜色图例\"两张，且图注末句被切到正文，任一提取图均未完整还原原图。\n- 结论：提取器缺乏**多面板聚类**与**图片页面归属**能力。\n\n### 3️⃣ 复杂排版阅读顺序错误（order_ok=false）—— ✅ 出现，且为最严重问题\n\n- **出现页：8 / 10 页**（P1、P2、P4、P5、P6、P7、P8、P9），仅 P3、P10 顺序正确。\n- **重度——双栏逐行交错、句子腰斩、跨栏断词粘连，正文不可读**（P2、P4–P9，共 7 页）：\n  - P2：\"Sequential Organ Fail- The study period was from April 1…\"，左栏 Introduction 与右栏 Data collection 合并成一段；\n  - P4：左栏 \"mor-\" 与右栏 \"vaso-\" 粘成 \"**vasotality**\"；右栏 2 个片段被剥离到页码之后；\n  - P9：\"clarify … advanced **Conclusion** organ support … clini- **In this study** … cal interpretation\"，正文与 Conclusion、Abbreviations 三栏内容穿插；产生 Simulintervals、prolaboratory、dysfuncall 等大量不可还原坏词。\n- **中度——结构/位置错乱**（P1）：标题拆成 3 段且 \"study\" 误标一级标题；页眉横幅移到输出末尾；页脚左右两栏被许可证文字隔开。\n- **衍生伤害**：标题与正文脱节（P2）、小标题顺序颠倒（P7 \"Interpretation and implications\"）、缩略语与释义分离（P9 Abbreviations 表）、补充材料 DOI 被字母级拆散（P9）。\n- ⚠️ 值得注意：P3 同为双栏却顺序正确，说明提取器**具备分栏能力但不稳定**，疑似受页内表格/图片区域干扰导致栏检测失效。\n\n---\n\n## 其他问题（按页列举）\n\n| 页 | 遗漏 | 多余/混入 | 其他 |\n|---|---|---|---|\n| P1 | 装饰图标 2 个（Check for updates、BMC Logo，可忽略） | DOI 行作正文；横幅/眉注混入正文 | 作者名与上标空格丢失（\"ShoheiOno1,5*\"）；\"R E S E A R C H\" 字距展开；摘要小节合并 |\n| P2 | — | 页脚 \"Page 2 of 10\" 混入正文 | 断词错并 \"follong\"；引用格式被改写 [17, 18]→[17,18] |\n| P3 | — | 页脚混入表格脚注；孤立词 \"transition\" | **幻觉图片 ×4**（Fig.1 碎片错挂本页）；图注截断 |\n| P4 | **Fig.1 整图 + 完整图注（全文最严重内容缺失）** | 页脚混入 | 右栏 2 片段错位至页码后 |\n| P5 | — | 页脚混入正文 | Fig.2 图注末句流入正文 |\n| P6 | — | 页脚混入正文 | Fig.3 图注拆为两半；右栏 2 个文本碎片孤立成段 |\n| P7 | 无明显整段缺失 | 页脚混入正文 | **P 值与单元格错位（数据准确性风险）** |\n| P8 | — | 页脚混入 | Fig.4 图注末句成正文；图片位置晚于正文 |\n| P9 | — | 页脚混入正文 | DOI 字母级拆散（链接不可用）；Author contributions 等句被腰斩分散 |\n| P10 | \"Published online: 11 August 2026\" | 页脚混入并打断参考文献 17 的跨栏续接 | 多条 DOI/URL 被空格破坏；参考文献合并为超长段落 |\n\n**跨页规律**：\n- 🔁 **页脚 \"Page X of 10\" 混入正文：P2–P10 共 9 页**，是最普遍的其他问题；\n- 🔗 **DOI/URL 被空格摧毁**：P9、P10（含字母级拆散），链接全部失效；\n- 🖼️ **幻觉图片**：仅 P3（4 张，均系 Fig.1 跨页错挂碎片）；\n- ✂️ **图注截断/拆分/丢失**：P3、P4、P5、P6、P8（4 个图无一图注完整）。\n\n---\n\n## 改进优先级（按影响排序）\n\n1. **【P0】双栏/复杂版式阅读顺序重建** —— 影响 8/10 页、拉低均分约 40 分，是最大杀手。应先做版面分析（栏检测、文本块分割）再拼接，**禁止跨栏逐行合并**；修复后可连带消除跨栏断词粘连（vasotality 类）、标题错位、缩写表拆散等一系列衍生问题。建议用 P3（成功）与 P2/P4（失败）做对比归因。\n2. **【P0】表格区域检测与结构化输出** —— 表格应以图片或结构化表（Markdown/HTML）保留行列对齐。**P7 的 P 值错挂属于医学数据错误，有实际误导风险**，优先级等同阅读顺序。\n3. **【P1】图片多面板聚类 + 页面归属** —— 同一 figure 的所有面板/图例须合并为单图；图片归属应依据**版面位置**而非正文引用位置，避免 Fig.1 式\"拆分 + 错挂 P3 + P4 漏提\"三重故障。\n4. **【P1】图注完整性绑定** —— 图注作为整体与图绑定输出，杜绝截断（P3）、拆半（P6）、末句流失（P5、P8）、整段丢失（P4）。\n5. **【P2】页眉/页脚/页码区域过滤** —— 9 页页脚混入正文，且已造成实质伤害（混入表格脚注 P3、打断参考文献续接 P10），建立稳定的页眉页脚区域剔除规则。\n6. **【P2】断词还原与空格规范化双向修正** —— 行尾连字符断词正确还原（follong、twosided、Mechan- ical）；URL/DOI 内禁止插入空格（P9、P10）；同时保留必要空格（作者名与上标间，P1）。\n7. **【P3】语义结构保留** —— 标题层级（P1）、摘要小节（P1）、参考文献条目边界（P10）、引用标注格式（P2）。\n8. **【P3】装饰性元素策略** —— 出版社 Logo/图标（P1）可忽略或显式标记为装饰，避免与内容图混淆。\n\n**一句话总结**：该提取器的 OCR 文字捕获能力（90 分）远好于其版面理解能力（顺序正确率 20%），优先投入**版面分析（栏/表格/图区域检测）**一项，即可同时修复本次评测中得分最低的 7 个页面。",
+  "verdicts": [
+    {
+      "page": 1,
+      "text": {
+        "completeness": 95,
+        "reading_order_ok": false,
+        "issues": [
+          "文章标题被拆成三个片段，且最后一行“study”被误标为一级标题，标题层级结构错乱",
+          "作者姓名与上标之间空格丢失（如“ShoheiOno1,5*”“ShigehikoUchino1”）",
+          "页眉/横幅文字“Critical Care”“Open Access”被移到输出末尾，位置错误",
+          "页脚为左右两栏布局：左栏（通讯作者+机构1-2）先输出，右栏（机构3-5）却被排到许可证文字之后，分栏顺序处理不当",
+          "“R E S E A R C H”“Co rre s p o n d e n c e”等文字字距被展开为带空格形式",
+          "摘要中 Background/Methods/Results/Conclusions/Keywords 各小节被合并为一个长段落，丢失小节结构"
+        ],
+        "missing": [],
+        "extraneous": [
+          "页首 DOI 行作为正文段落输出",
+          "“R E S E A R C H”“Open Access”“Critical Care”等横幅/眉注元素混入正文"
+        ]
+      },
+      "figures": [
+        {
+          "name": "Check for updates 图标",
+          "status": "missed",
+          "comment": "页面右上角出版商装饰性图标，未提取，对正文理解无影响"
+        },
+        {
+          "name": "BMC 标志",
+          "status": "missed",
+          "comment": "页脚出版商 Logo，未提取，属装饰性元素，影响可忽略"
+        }
+      ],
+      "tables": [],
+      "overall": 80,
+      "summary": "正文与摘要内容基本完整，但标题被拆分且层级错乱、作者名空格丢失，页眉横幅被移至末尾、页脚两栏被许可文字隔开导致顺序错误；无内容性图表。"
+    },
+    {
+      "page": 2,
+      "text": {
+        "completeness": 92,
+        "reading_order_ok": false,
+        "issues": [
+          "本页为双栏排版，提取时左右两栏文字逐行交错混排：左栏 Introduction/Methods 与右栏 Data collection/Statistical analysis 被合并进同一段落，句子被拦腰截断拼接（如“Sequential Organ Fail- The study period was from April 1…”）",
+          "断词处发生错误合并，如“fol-”+“long”被拼成“follong”，多处连字符断词未正确还原",
+          "标题与正文脱节：“Data collection”单独成段，其正文却被混入 Introduction 段落；“Statistical analysis”标题夹在左栏段落中间",
+          "参考文献标注格式被改写（如 [17, 18]→[17,18]）"
+        ],
+        "missing": [],
+        "extraneous": [
+          "页脚“Page 2 of 10”被混入 Methods 段落末尾，本应去除"
+        ]
+      },
+      "figures": [],
+      "tables": [],
+      "overall": 32,
+      "summary": "文字基本齐全但双栏严重交错混排，阅读顺序完全错乱，提取结果不可用。"
+    },
+    {
+      "page": 3,
+      "text": {
+        "completeness": 97,
+        "reading_order_ok": true,
+        "issues": [
+          "Table 1 全部内容以连续正文段落形式输出，表格行列结构完全丢失，行标签因换行被拆散（如 'Non-Invasive 3024 (2.2)' 与 'Positive Pressure Ventilation' 分离、'Invasive Mechan-' 与 'ical Ventilation' 断行）",
+          "保留换行断字痕迹：Mechan- ical、Bal- loon、Hos- pital、'two-sided' 输出为 'twosided'",
+          "孤立段落 'transition' 实为 Figure 1 图注的结尾词（图注在 '...undergoing the corresponding' 处被截断），位置错乱地出现在正文之后、图片之前",
+          "提取图#1 的图注不完整，句子截断"
+        ],
+        "missing": [],
+        "extraneous": [
+          "页脚 'Page 3 of 10' 混入表格脚注末尾",
+          "孤立词段落 'transition'（非本页正文内容）"
+        ]
+      },
+      "figures": [
+        {
+          "name": "Figure 1（提取图#1）",
+          "status": "spurious",
+          "comment": "原始第3页不含任何插图；该图为 Fig.1 Sankey 图的前3个器官面板（Brain/Respiratory/Cardiovascular）。Figure 1 虽在本页正文被引用（'Figure 1 shows...'），但图本身疑似来自相邻页；且原图被拆分成多张提取图（本张含3个面板），图注在句中被截断"
+        },
+        {
+          "name": "Figure 1（提取图#2）",
+          "status": "spurious",
+          "comment": "原始第3页无此图；为 Figure 1 的单个器官 Sankey 面板（疑为 Liver），无图注，疑似来自相邻页，属原 Figure 1 被拆分的一张"
+        },
+        {
+          "name": "Figure 1（提取图#3）",
+          "status": "spurious",
+          "comment": "原始第3页无此图；为 Figure 1 的单个器官 Sankey 面板（疑为 Kidney），无图注，疑似来自相邻页"
+        },
+        {
+          "name": "Figure 1（提取图#4）",
+          "status": "spurious",
+          "comment": "原始第3页无此图；为 Figure 1 的单个器官 Sankey 面板（疑为 Hemostasis），无图注，疑似来自相邻页；拆分方式不一致（#1 含3面板，#2-#4 各1面板）"
+        }
+      ],
+      "tables": [
+        {
+          "name": "Table 1",
+          "status": "mixed_into_text",
+          "comment": "表题、全部行列数据及脚注均完整提取，但以流式正文段落混入文本，行列对齐结构完全丢失，可读性差；页脚 'Page 3 of 10' 混入表格末尾"
+        }
+      ],
+      "overall": 70,
+      "summary": "正文与 Table 1 文字提取完整、双栏顺序正确，但表格以纯文本混入正文导致结构全失，且本页原无插图却被归属4张疑似来自相邻页的 Figure 1 拆片，图注截断并残留孤立词 'transition'。"
+    },
+    {
+      "page": 4,
+      "text": {
+        "completeness": 80,
+        "reading_order_ok": false,
+        "issues": [
+          "双栏正文被按横向行交错拼接：左栏句子与右栏句子交替插入，导致语义不可读，例如左栏“hetero-/geneity”被右栏“SOFA differed...”打断。",
+          "跨栏断词被错误粘连或拆分，如“mor-”与右栏“vaso-”连成“vasotality”，以及“reclas-/thersification”“sever-/ity”“match-/ing”等。",
+          "右栏两个片段“the three groups had identical SOFA score distributions,”和“In Figs. 3B and Supplementary Fig. 6B, after match-”被剥离到页码之后，未放回“Conversely...”和“after matching on SOFA-2”的正确位置。",
+          "Figure 1 的图注未作为正文提取。",
+          "混入页脚文字“Page 4 of 10”。"
+        ],
+        "missing": [
+          "Fig. 1 完整图注：Reclassification of organ subscores between Day-1 SOFA and SOFA-2，以及关于 Brain/Respiratory/Cardiovascular/Liver/Kidney/Hemostasis 六组 Sankey 图和 flow width 含义的说明。"
+        ],
+        "extraneous": [
+          "Page 4 of 10"
+        ]
+      },
+      "figures": [
+        {
+          "name": "Figure 1",
+          "status": "missed",
+          "comment": "原页上半部分的复合图（Brain、Respiratory、Cardiovascular、Liver、Kidney、Hemostasis 六个 Sankey 面板）及其图注完全未提取。"
+        }
+      ],
+      "tables": [],
+      "overall": 35,
+      "summary": "正文大体字数尚存，但双栏被逐行交错且有片段错位到页脚后，Figure 1 及图注完全丢失并混入页码，整页重排质量很差。"
+    },
+    {
+      "page": 5,
+      "text": {
+        "completeness": 88,
+        "reading_order_ok": false,
+        "issues": [
+          "左右两栏正文被逐行交错混排：左栏承接段与右栏 Discussion 标题及段落交替拼接，句子被拦腰切断（如“Fig- This study examined … ure 4”“brain, carof hemostasis”“find- introduces … dysfunc- ings”），连字符断词被错误跨栏拼接。",
+          "右栏段落“Our findings suggest … rather, it”被拆到后部单独成段，其承接句“introduces a systematic reclassification …”却混入前述混排段落，语义断裂。",
+          "Fig. 2 图注末行“shaded in gray indicate score combinations observed in <1% of the cohort”被当作正文段落，与图注主体分离。",
+          "页脚“Page 5 of 10”混入正文段落末尾。"
+        ],
+        "missing": [],
+        "extraneous": [
+          "页脚“Page 5 of 10”混入正文"
+        ]
+      },
+      "figures": [
+        {
+          "name": "Figure 2",
+          "status": "split",
+          "comment": "原页为单一 Figure 2（Brain/Respiratory/Cardiovascular/Liver/Kidney/Hemostasis 六个热图面板 + 右侧 ICU Mortality 色阶与“Observed <1%”灰块图例 + 图注）。提取时被拆成两张：提取图#1 仅含六个热图面板，提取图#2 仅含颜色图例；且图注最后一句被切到正文，任一提取图均未完整还原原图。"
+        }
+      ],
+      "tables": [],
+      "overall": 40,
+      "summary": "正文文字基本未缺，但左右双栏被逐行交错混排、断词跨栏拼接，阅读顺序严重错误；Figure 2 被拆分为热图与图例两张且图注末句落入正文，整体可用性差。"
+    },
+    {
+      "page": 6,
+      "text": {
+        "completeness": 90,
+        "reading_order_ok": false,
+        "issues": [
+          "正文为左右双栏排版，但提取时将两栏逐行交错拼接（如“organ dys- heat maps demonstrated…within function rather than predict mortality”），整段正文不可读",
+          "多处跨栏断词被错误合并（如 indiassessment、Overhighest、extertion、therament、catongoing、discontinuation 被拆开等）",
+          "Figure 3 图注被拆成两部分：前半句随图片 caption 输出（在“matched across”处截断），后半句作为正文第一段输出",
+          "右栏的两处文本碎片（“We next examined the clinical implications of score”“cate that patients classified at the same severity level by”）被单独拆成段落，与主段落中的断词对应",
+          "页脚“Page 6 of 10”混入正文段落末尾"
+        ],
+        "missing": [],
+        "extraneous": [
+          "Page 6 of 10（页脚页码混入正文）"
+        ]
+      },
+      "figures": [
+        {
+          "name": "Figure 3",
+          "status": "correct",
+          "comment": "原页唯一插图（含 A/B/C 三个子图）完整正确提取；仅图注文字被拆分，前半随图、后半流入正文段落"
+        }
+      ],
+      "tables": [],
+      "overall": 58,
+      "summary": "Figure 3 图片提取正确且文字内容基本齐全，但双栏正文被逐行交错混排、断词严重，图注被拆分且页脚混入正文，正文可读性差。"
+    },
+    {
+      "page": 7,
+      "text": {
+        "completeness": 88,
+        "reading_order_ok": false,
+        "issues": [
+          "双栏正文逐行交错混排：左栏正文片段与右栏'Interpretation and implications'栏文字在同一行内拼接（如'vasoac- Our findings...'、'discriminaless'），完全无法阅读",
+          "小标题'Interpretation and implications'顺序错乱，被排到交错正文段落之后，而其正文开头却在标题之前输出",
+          "表格被拆成 8 个段落：SOFA-2 Matching 半表（含行标签）先输出，SOFA Matching 半表的数据被拆成多个无行标签的孤立数字段落",
+          "左半表多行 P 值（BMI、Readmission、CCI、多个治疗行等）脱落后错挂到右半表对应数值之前，左右两半数据交错",
+          "页脚'Page 7 of 10'混入正文段落末尾"
+        ],
+        "missing": [
+          "无明显整段文字缺失；表格各行数值与表脚注基本齐全，但部分 P 值与单元格错位"
+        ],
+        "extraneous": [
+          "页脚'Page 7 of 10'被当作正文提取"
+        ]
+      },
+      "figures": [],
+      "tables": [
+        {
+          "name": "Table 2",
+          "status": "mixed_into_text",
+          "comment": "表格未被作为图片或结构化表格保留，而是拆成多个文本段落：左半（SOFA-2 Matching）带行标签先出，右半（SOFA Matching）变成 6 个无行标签的数字段落，部分左半 P 值错挂到右半数值前，结构完全破坏"
+        }
+      ],
+      "overall": 45,
+      "summary": "文字内容基本齐全，但双栏正文逐行交错、小标题顺序颠倒、表格被拆碎且数值错位，阅读顺序严重错误，整体提取质量差。"
+    },
+    {
+      "page": 8,
+      "text": {
+        "completeness": 92,
+        "reading_order_ok": false,
+        "issues": [
+          "本页为双栏正文，但提取按整页横线逐行拼接，左栏与右栏文字严重交错（如左栏“...information repre-”后插入右栏“SOFA-2 differ...”再接“sented by the other”）。",
+          "右栏句子“Another possible interpretation is that SOFA and”被拆成独立段落，且与其后续“SOFA-2 differ...”分离，顺序错误。",
+          "多处断词或跨栏粘连影响可读性，如“discriminaarise”“ongocomplementary”“repre- sented”“calibration”等被拆开或接错。",
+          "Fig. 4 图注末句被作为正文段落输出，且图片本体排在该段正文之后，与原页“图—图注—正文”的顺序不一致。"
+        ],
+        "missing": [],
+        "extraneous": [
+          "Page 8 of 10"
+        ]
+      },
+      "figures": [
+        {
+          "name": "Fig. 4",
+          "status": "correct",
+          "comment": "提取图对应原页 Fig. 4 的六个分面板，图形内容完整、无无关内容；但图注被拆分（图片 caption 止于“Bars”，余句成独立段落），且图片在输出顺序中晚于正文。"
+        }
+      ],
+      "tables": [],
+      "overall": 52,
+      "summary": "正文基本找全且 Fig. 4 图形提取正确，但双栏正文被逐行交错拼接、图注拆分且图片位置错误，整体阅读顺序严重不合格。"
+    },
+    {
+      "page": 9,
+      "text": {
+        "completeness": 84,
+        "reading_order_ok": false,
+        "issues": [
+          "左右两栏严重逐行交错：左栏 Strengths and limitations 正文与右栏 Conclusion/Abbreviations 等被穿插在同一段落中（如“clarify … advanced Conclusion organ support … clini- In this study … cal interpretation”），阅读顺序完全错乱。",
+          "跨栏断词被错误合并，产生大量不可还原的坏词，例如 Simul+intervals→“Simulintervals”、pro-+laboratory→“prolaboratory”（provide 被拆散）、dysfunc-+all→“dysfuncall”、com-+were→“comwere”、mea-+dSOFA+sured（measured 被拆）、associa-/tions、represen-/tation 等。",
+          "Abbreviations 双栏列表被拆散：缩略语列（APACHE/BMI/CCI/dSOFA/ICU/IABP/RRT/SD/SOFA/STROBE 等）被插进正文段，定义列则集中到后面的独立段，导致大量缩写与释义分离（如 APACHE 与其释义不在一处）。",
+          "补充材料 DOI 被按字母加空格拆开：“h t tp s : // d oi .o r”与“g / 1 0 . 1 1 8 6 / s 1 3 0 5 4 - 0 2 6 - 0 6 2 4 1 - 0.”，链接不可用。",
+          "Author contributions / Data availability 等小节句子被腰斩分散到不同段落（如“SO is responsible …”与“contributed as an advisor …”分离；“The datasets … are not”与后半句分离）。"
+        ],
+        "missing": [],
+        "extraneous": [
+          "页脚/页码“Page 9 of 10”被并入正文段末尾（应剔除）。"
+        ]
+      },
+      "figures": [],
+      "tables": [],
+      "overall": 38,
+      "summary": "文字基本齐全但双栏被逐行交错合并、跨栏断词大量损坏且缩写表与DOI被拆散，页码混入正文，本页重排质量差。"
+    },
+    {
+      "page": 10,
+      "text": {
+        "completeness": 94,
+        "reading_order_ok": true,
+        "issues": [
+          "多条参考文献的 DOI/URL 被插入大量空格而破坏，如“h t tp s : // d oi .o rg …”“https:/ /doi.org/10.11 86/s 40560-026-00875-6”。",
+          "参考文献被合并成少量超长段落，条目间换行/边界保留较差。",
+          "部分声明标题与正文合并在同一段落中，结构层级被压平。"
+        ],
+        "missing": [
+          "Published online: 11 August 2026"
+        ],
+        "extraneous": [
+          "页脚文字“Page 10 of 10”混入正文，并插在参考文献17跨栏续接处。"
+        ]
+      },
+      "figures": [],
+      "tables": [],
+      "overall": 89,
+      "summary": "正文基本完整且双栏阅读顺序正确，但漏掉 Published online 行、页脚混入正文，且多条 DOI/URL 被空格破坏。"
+    }
+  ],
+  "blocks": [
+    {
+      "index": 0,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "https://doi.org/10.1186/s13054-026-06241-0"
+    },
+    {
+      "index": 1,
+      "kind": "h2",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "R E S E A R C H"
+    },
+    {
+      "index": 2,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Patient-level reclassification and discordance"
+    },
+    {
+      "index": 3,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "between SOFA and SOFA-2: a multicenter ICU"
+    },
+    {
+      "index": 4,
+      "kind": "h1",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "study"
+    },
+    {
+      "index": 5,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "ShoheiOno1,5* , ShigehikoUchino1, YutakaKumaido1,2, ShunsukeYawata3 and ShinshuKatayama1,4"
+    },
+    {
+      "index": 6,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Abstract Background The Sequential Organ Failure Assessment (SOFA) score is widely used to quantify organ dysfunction in critically ill patients. A revised version, SOFA-2, was proposed to better reflect contemporary intensive care practice, but patient-level reclassification and the implications of differences between SOFA and SOFA-2 remain unclear. Methods We conducted a retrospective multicenter cohort study using the OneICU database, a Japanese ICU registry including 15 hospitals. Adult ICU admissions between April 2012 and December 2025 were analyzed. Day-1 SOFA and SOFA-2 scores were calculated. Reclassification patterns were visualized using Sankey diagrams, and mortality patterns were assessed using heat maps. Score discordance was defined as SOFA deviation (dSOFA=SOFA-2−SOFA) and categorized as Negative (≤−2), Minimal (>−2 and <2), or Positive (≥2). Two primary exact-matching analyses were performed across dSOFA categories, separately matching patients on Day-1 SOFA-2 and conventional SOFA total scores. Results Among 134,528 ICU admissions, SOFA-2 resulted in systematic patient-level reclassification. Upward shifts were most frequent in the brain, cardiovascular, and respiratory subscores, whereas the kidney subscore showed bidirectional changes. Mortality increased with higher SOFA-2 subscores at fixed SOFA and with higher SOFA subscores at fixed SOFA-2. After exact matching on SOFA-2, mortality was highest in the Negative dSOFA group, in which SOFA was higher than SOFA-2. Conversely, after exact matching on conventional SOFA, mortality was highest in the Positive dSOFA group, in which SOFA-2 was higher than SOFA. Conclusions SOFA-2 introduces systematic reclassification at the patient level. Reciprocal exact-matching analyses demonstrated that patients assigned the same severity by one scoring system remained heterogeneous in mortality according to the other scoring system. SOFA and SOFA-2 may therefore provide overlapping but complementary information for assessing organ dysfunction severity. Keywords SOFA score, SOFA-2, organ dysfunction, intensive care unit, reclassification"
+    },
+    {
+      "index": 7,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "* Co rre s p o n d e n c e : Shohei Ono airness.of.mj@gmail.com 1Department of Anesthesiology and Critical Care Medicine, Jichi Medical University Saitama Medical Center, Saitama, Japan 2Department of Emergency and Critical Care Medicine, Jichi Medical University Saitama Medical Center, Saitama, Japan"
+    },
+    {
+      "index": 8,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "© The Author(s) 2026.Open Access This article is licensed under a Creative Commons Attribution 4.0 International License, which permits use, sharing, adaptation, distribution and reproduction in any medium or format, as long as you give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons licence, and indicate if changes were made. The images or other third party material in this article are included in the article’s Creative Commons licence, unless indicated otherwise in a credit line to the material. If material is not included in the article’s Creative Commons licence and your intended use is not permitted by statutory regulation or exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To view a copy of this licence, visithttp://creativecommons.org/licenses/by/4.0/."
+    },
+    {
+      "index": 9,
+      "kind": "h2",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Critical Care"
+    },
+    {
+      "index": 10,
+      "kind": "h2",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Open Access"
+    },
+    {
+      "index": 11,
+      "kind": "p",
+      "page": 1,
+      "spansPages": false,
+      "method": "exact",
+      "text": "3Graduate School of Data Science, Yokohama City University, Yokohama, Japan 4Division of Intensive Care, Department of Anesthesiology and Intensive Care Medicine, Jichi Medical University, Tochigi, Japan 5Jichi Medical University Saitama Medical Center, 1-847 Amanuma- cho, Omiya-ku, Saitama 330-8503, Japan"
+    },
+    {
+      "index": 12,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "Introduction In 2025, an updated version of the Sequential Organ Fail- The study period was from April 1, 2012 to December 31, ure Assessment score (SOFA-2) was proposed to bet- 2025. From 164,455 ICU admissions in the database, we ter reflect contemporary intensive care practice [1, 2]. excluded patients<18 years, ICU stay<12 h, and admis- Although the SOFA score, introduced in 1996 [3], has sions with missing ICU mortality. We extracted the follong been a cornerstone for assessing organ dysfunc- lowing variables for each ICU admission: age, sex, body tion in critically ill patients [4–6], several components mass index, ICU readmission status, elective surgery of the score no longer fully align with current therapeu- status, APACHE III score, and Charlson Comorbidity tic strategies and monitoring practices [7–10]. SOFA-2 Index. We also extracted use of key therapies and organ introduces revisions to several organ subscores to bet- support modalities recorded in the database, including ter reflect modern therapeutic strategies and monitoring nasal high-flow oxygen, non-invasive positive pressure practices. In the original report [2], SOFA-2 demon- ventilation, invasive mechanical ventilation, veno-venous strated slightly improved discrimination for mortality ECMO, veno-arterial ECMO, renal replacement therapy, compared with the conventional SOFA score (AUROC vasoactive/inotropic agents (epinephrine, vasopres- 0.79 vs. 0.77) across multiple large ICU databases [11– sin, norepinephrine, dopamine, and dobutamine), and 16], and subsequent external validation studies have mechanical circulatory support (intra-aortic balloon reported consistent findings [17,18]. Despite these encouraging results, key aspects of the ICU mortality, in-hospital mortality, ICU length of stay, transition from SOFA to SOFA-2 remain unclear. First, it and hospital length of stay. is not well understood how individual patients are reclassified at the organ-subscore level when SOFA is replaced temporal resolutions: Day-1 (first 24 h after ICU admisby SOFA-2, as previous reports have focused on aggre- sion) and hourly. The detailed calculation rules for gate score distributions rather than patient-level transi- SOFA and SOFA-2 were prespecified and retrospectively tions. Second, the relationship between total SOFA and applied to all eligible ICU admissions using routinely col- SOFA-2 scores has not been systematically evaluated, lected data in the OneICU database, as described in the and the clinical implications of differences between the Supplementary Methods. Score discordance between two scores remain uncertain. To address these knowledge gaps, we analyzed a mul- (dSOFA=SOFA-2−SOFA) and categorized as Negative ticenter ICU database to investigate how organ dys- (≤−2), Minimal (>−2 and <2), or Positive (≥2). The prifunction assessment changes when SOFA is replaced by mary outcome was ICU mortality (death during the ICU SOFA-2. Specifically, we aimed to evaluate (1) patient- stay). level reclassification of organ-specific subscores between SOFA and SOFA-2 and the clinical implications of these Statistical analysis changes, and (2) the association between differences in Continuous variables are reported as mean (SD) and catetotal SOFA and SOFA-2 scores and patient mortality. We gorical variables as n (%), compared using t-tests and chihypothesized that the transition to SOFA-2 would lead square tests, respectively. Reclassification was visualized to systematic patient-level reclassification and that dis- using subscore-specific Sankey diagrams. To characterize cordance between SOFA and SOFA-2 would be associ- prognostic implications of subscore-level reclassification, ated with mortality differences independent of baseline we created heat maps displaying observed ICU mortalseverity."
+    },
+    {
+      "index": 13,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "Methods Design We conducted a retrospective multicenter observational defined by each scoring system, we performed two pristudy using the OneICU database (provided by MeD- mary exact-matching analyses across the three dSOFA iCU, Inc., Osaka, Japan, https://www.medicu.co.jp/), a categories [20]. Exact matching was used to construct Japanese ICU registry from 15 hospitals. The OneICU comparison cohorts in which the prespecified matchdatabase records high-resolution ICU data at 1-min- ing characteristic—either the Day-1 SOFA-2 total score ute intervals (vital signs, laboratory results, therapies, or the Day-1 SOFA total score—was identical across the and clinical observations). The study was approved by dSOFA categories. Matching was conducted separately the Institutional Review Board of Jichi Medical Univer- for each exact score value, thereby yielding identical sity Saitama Medical Center (S25-109) and conducted in distributions of the score used for matching across the accordance with ethical guidelines for de-identified rou- three groups. Within each matched cohort, ICU mortaltinely collected data, following STROBE [19]. Page 2 of 10"
+    },
+    {
+      "index": 14,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Data collection"
+    },
+    {
+      "index": 15,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "exact",
+      "text": "pumping and microaxial flow pump). Outcomes included"
+    },
+    {
+      "index": 16,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "exact",
+      "text": "SOFA and SOFA-2 total scores were calculated at two"
+    },
+    {
+      "index": 17,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "exact",
+      "text": "SOFA and SOFA-2 was quantified as SOFA deviation"
+    },
+    {
+      "index": 18,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "exact",
+      "text": "ity (%) for each combination of SOFA and SOFA-2 organ subscores. We examined the distribution of SOFA deviation and ICU mortality across SOFA-2 severity strata. To compare ICU mortality at equivalent severity levels"
+    },
+    {
+      "index": 19,
+      "kind": "p",
+      "page": 2,
+      "spansPages": false,
+      "method": "exact",
+      "text": "ity was compared across dSOFA categories within strata"
+    },
+    {
+      "index": 20,
+      "kind": "p",
+      "page": 3,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "Table 1 Patient characteristics and outcomes All patients Survived Died P- (n=134528) (n=128354) in ICU value (n=6174) Age, years, mean 66.2 (16.8) 66.0 (16.8) 70.3 (15.2) <0.001 (sd) Female, n (%) 53,682 (39.9) 51,413 (40.1) 2269 (36.8) <0.001 Body Mass Index, 22.8 (6.1) 22.8 (6.2) 22.4 (4.9) <0.001 kg/m2, mean (sd) Readmission, 7275 (5.4) 6758 (5.3) 517 (8.4) <0.001 n (%) Elective Surgery, 19,001 (14.1) 18,804 (14.7) 197 (3.2) <0.001 n (%) APACHE III score, 85.5 (39.9) 82.4 (37.4) 149.0 (37.5) <0.001 pts, mean (sd) CCI, pts, mean 4.0 (3.0) 4.0 (3.0) 3.9 (2.7) 0.001 (sd) Treatment, n (%) Nasal High Flow 2872 (2.1) 2599 (2.0) 273 (4.4) <0.001 Non-Invasive 3024 (2.2) 2786 (2.2) 238 (3.9) <0.001 Positive Pressure Ventilation Invasive Mechan- 36,680 (27.3) 32,296 (25.2) 4384 (71.0) <0.001 ical Ventilation VV-ECMO 85 (0.1) 63 (0.0) 22 (0.4) <0.001 Epinephrine 1487 (1.1) 947 (0.7) 540 (8.7) <0.001 Vasopressin 4284 (3.2) 3032 (2.4) 1252 (20.3) <0.001 Norepinephrine 21,209 (15.8) 17,784 (13.9) 3425 (55.5) <0.001 Dopamine 9207 (6.8) 8015 (6.2) 1192 (19.3) <0.001 Dobutamine 8618 (6.4) 7666 (6.0) 952 (15.4) <0.001 Intra-Aortic Bal- 1089 (0.8) 889 (0.7) 200 (3.2) <0.001 loon Pumping Microaxial flow 131 (0.1) 87 (0.1) 44 (0.7) <0.001 pump VA-ECMO 924 (0.7) 517 (0.4) 407 (6.6) <0.001 Renal Replace- 5989 (4.5) 4642 (3.6) 1347 (21.8) <0.001 ment Therapy SOFA score, pts, 5.64 (4.12) 5.35 (3.87) 11.77 (4.39) <0.001 mean (sd) SOFA-2 score, 5.81 (4.00) 5.52 (3.76) 11.86 (4.04) <0.001 pts, mean (sd) Outcomes Hospital death, 10,145 (7.7) 3971 (3.2) 6174 <0.001 n (%) (100.0) Length of ICU 6.0 (10.0) 5.7 (8.8) 12.5 (22.8) <0.001 Stay, days, mean (sd) Length of Hos- 27.6 (34.5) 28.1 (34.7) 17.6 (29.5) <0.001 pital Stay, days, mean (sd) Categorical variables are presented as number (%); variables not labeled as n (%) are numerical and are presented as mean (SD). Abbreviations: APACHE III, Acute Physiology and Chronic Health Evaluation III; CCI, Charlson Comorbidity Index; IABP, Intra-Aorta Balloon Pumping; IMV, Invasive Mechanical Ventilation; NIPPV, Non-Invasive Positive Pressure Ventilation; RRT, Renal Replacement Therapy; VV-ECMO, Veno-Venous Extracorporeal Membrane Oxygenation; VA- ECMO, Veno-Arterial ExtraCorporeal Membrane Oxygenation Page 3 of 10"
+    },
+    {
+      "index": 21,
+      "kind": "p",
+      "page": 3,
+      "spansPages": false,
+      "method": "exact",
+      "text": "of the score used for matching. The conceptual framework for conditioning on either SOFA-2 or SOFA in the matched analyses was illustrated using a directed acyclic graph (DAG). As sensitivity analyses, we performed inverse probability weighting using multinomial propensity scores for the dSOFA categories and conducted a subgroup analysis restricted to patients with sepsis within the SOFA-2–matched cohort. Within the cohort matched on SOFA-2 total score, Day-1 organ subscores were summarized across deviation categories to identify which organ systems contributed most strongly to negative or positive deviations. All statistical tests were twosided, and the threshold for statistical significance was set at α = 0.05. Data extraction and preprocessing were performed using Google BigQuery, and all statistical analyses were conducted using R version 4.5.2."
+    },
+    {
+      "index": 22,
+      "kind": "p",
+      "page": 3,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Results A total of 164,455 ICU admissions with 18,277,429 data points were available in the OneICU database (Supplementary Fig. 1). After excluding 11,563 admissions, the analytic cohort comprised 134,528 ICU admissions with 15,814,904 data points. ICU non-survivors were older (70.3 vs. 66.0 years), had higher APACHE III scores (149.0 vs. 82.4), more ICU readmissions (8.4% vs. 5.3%), fewer elective surgical admissions (3.2% vs. 14.7%), and higher baseline severity (SOFA 11.83 vs. 5.37; SOFA-2 11.86 vs. 5.52) than survivors (Table 1). The frequency of unmeasured variables for each SOFA and SOFA-2 component and the corresponding application of predefined score-assignment rules are summarized in Supplementary Table 1. Figure 1 shows subscore-level reclassification patterns from SOFA to SOFA-2. For the brain subscore, most transitions were toward higher SOFA-2 subscores, with a shift from 0 to 1 also observed. Redistribution was observed within the lower score range (0–1), including shift of ≥2 points toward higher categories. For the respiratory subscore, transitions were concentrated within the 2–4 range, including upward changes following threshold revision. Increases of ≥2 points were also present. For the cardiovascular subscore, the most frequent SOFA subscore was 1, and higher subscores (2–4) were more frequent under SOFA-2. For liver and hemostasis, reclassification corresponded to threshold changes. The kidney subscore showed the most complex pattern, with substantial bidirectional reclassification, with both increases and decreases in assigned subscores under SOFA-2. Figure 2 shows subscore-specific heat maps of ICU mortality across combinations of SOFA (y-axis) and SOFA-2 (x-axis) subscores. Mortality increased across the higher combinations of SOFA and SOFA-2 subscores. After fixing the SOFA-2 subscore, mortality still increased with higher SOFA subscores (i.e., vertically"
+    },
+    {
+      "index": 23,
+      "kind": "figure",
+      "page": 3,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "Fig. 1 Reclassification of organ subscores between Day-1 SOFA and SOFA-2. Sankey diagrams illustrate patient-level reclassification based on day-1 organ subscores. For each organ system (Brain, Respiratory, Cardiovascular, Liver, Kidney, and Hemostasis), transitions in subscore categories (0–4) from conventional SOFA (left) to SOFA-2 (right) are shown. The width of each flow is proportional to the number of patients undergoing the corresponding",
+      "imageBytes": 38356
+    },
+    {
+      "index": 24,
+      "kind": "figure",
+      "page": 3,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "",
+      "imageBytes": 17608
+    },
+    {
+      "index": 25,
+      "kind": "figure",
+      "page": 3,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "",
+      "imageBytes": 18004
+    },
+    {
+      "index": 26,
+      "kind": "figure",
+      "page": 3,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "",
+      "imageBytes": 18964
+    },
+    {
+      "index": 27,
+      "kind": "p",
+      "page": 3,
+      "spansPages": false,
+      "method": "exact",
+      "text": "transition"
+    },
+    {
+      "index": 28,
+      "kind": "p",
+      "page": 4,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "along the y-axis), suggesting clinically meaningful hetero- SOFA differed (10.18 Negative dSOFA; 7.41 Minimal geneity within the same SOFA-2 category. This vertical dSOFA; 4.75 Positive dSOFA;P<0.001). Negative dSOFA gradient was pronounced for the respiratory subscore at patients were older, had higher APACHE III scores, and SOFA-2 subscores 2–4, for the cardiovascular subscore more frequently received invasive mechanical ventilation at SOFA-2 subscores 2–4, and for the kidney subscore at and vasoactive therapies, Positive dSOFA patients had SOFA-2 subscores 1–2, where changes in observed mor- lower APACHE III scores and less frequent use of vasotality across SOFA categories were large. Similar reclas- active agents, and more frequent renal replacement thersification patterns and mortality gradients were observed apy. Conversely, after exact matching on Day-1 SOFA, in the hourly analyses (Supplementary Figs. 2–3). Overall discordance between SOFA and SOFA-2 was whereas SOFA-2 scores increased from the Negative to quantified using dSOFA (Figs. 3 and Supplementary the Positive dSOFA group. The overall gradients in sever- Fig. 6). The conceptual framework for the two exact- ity-related characteristics and organ-support therapies matching analyses, conditioning separately on SOFA-2 across the dSOFA categories were also broadly reversed and conventional SOFA, is illustrated using a DAG in compared with those in the SOFA-2–matched cohort. Supplementary Fig. 4. We performed two parallel primary exact-matching analyses across the three dSOFA ing on SOFA-2, ICU mortality differed across deviation categories, matching separately on Day-1 SOFA-2 and categories. Mortality was highest in the Negative dSOFA Day-1 SOFA total scores, yielding 47,676 and 40,746 group, intermediate in the Minimal dSOFA group, and patients in each analysis (Table 2, Supplementary Fig. 1, lowest in the Positive dSOFA group. This separation and Supplementary Fig. 5). After exact matching on between deviation categories widened as SOFA-2 sever- Day-1 SOFA-2, the three dSOFA groups had identical ity increased. In the parallel analysis matching on SOFA, mean SOFA-2 scores by design (7.43 in all groups), while ICU mortality tended to be higher in the Positive dSOFA Page 4 of 10"
+    },
+    {
+      "index": 29,
+      "kind": "p",
+      "page": 4,
+      "spansPages": false,
+      "method": "exact",
+      "text": "the three groups had identical SOFA score distributions,"
+    },
+    {
+      "index": 30,
+      "kind": "p",
+      "page": 4,
+      "spansPages": false,
+      "method": "exact",
+      "text": "In Figs. 3B and Supplementary Fig. 6B, after match-"
+    },
+    {
+      "index": 31,
+      "kind": "figure",
+      "page": 5,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "Fig. 2 Subscore-level reclassification heat maps between Day-1 SOFA and SOFA-2 with ICU mortality. Results are based on Day 1 organ subscores. For each subscore (Brain, Respiratory, Cardiovascular, Liver, Kidney, and Hemostasis), heat maps display ICU mortality (%) for each combination of SOFA score (y-axis) and SOFA-2 score (x-axis) subscores (0–4). Values within cells indicate ICU mortality (%) and color intensity reflects the magnitude of mortality. Cells",
+      "imageBytes": 68736
+    },
+    {
+      "index": 32,
+      "kind": "figure",
+      "page": 5,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "",
+      "imageBytes": 9276
+    },
+    {
+      "index": 33,
+      "kind": "p",
+      "page": 5,
+      "spansPages": false,
+      "method": "exact",
+      "text": "shaded in gray indicate score combinations observed in <1% of the cohort"
+    },
+    {
+      "index": 34,
+      "kind": "p",
+      "page": 5,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "group, which had higher SOFA-2 scores within the same Discussion SOFA strata (Fig. 3C and Supplementary Fig. 6C). Fig- This study examined the transition from SOFA to ure 4 and Supplementary Fig. 7 summarize Day 1 SOFA SOFA-2 and yielded several important findings. Sankey organ subscores across dSOFA categories within the diagrams demonstrated systematic upward shifts toward cohort matched on SOFA-2 score. With the exception higher severity categories, particularly in the brain, carof hemostasis, subscores were highest in the Negative diovascular, and respiratory subscores. Heat map analydSOFA group, followed by the Minimal dSOFA group, ses showed that mortality increased with higher SOFA and lowest in the Positive dSOFA group. This gradient subscores when the SOFA-2 subscore was fixed. Furtherwas observed for the kidney and cardiovascular sub- more, discordance between SOFA and SOFA-2 was assoscores. The distribution of kidney subscores differed ciated with clinically meaningful outcome differences across Day-1 SOFA categories. In Supplementary Fig. 7, even after matching on SOFA and SOFA-2. the proportion of patients in each kidney SOFA category varied across dSOFA groups. Sensitivity analyses showed broadly consistent find- introduces a systematic reclassification of organ dysfuncings. In the inverse probability weighting analysis using tion severity. This reclassification primarily affected the multinomial propensity scores for dSOFA categories, neurological, cardiovascular, and respiratory subscores, absolute mean differences were below 0.1 after weighting reflecting updates that incorporate contemporary ICU (Supplementary Fig. 9), and mortality differences across practices, including mechanical support therapies such deviation categories were consistent with the SOFA-2– as extracorporeal membrane oxygenation, the inclusion matched analysis (Supplementary Fig. 8A, B). In the of vasoactive agents such as vasopressin, and modificasepsis subgroup, estimates were more variable at higher tions to neurological assessment [7–9, 21, 22]. Assigning score levels, but the overall pattern remained consistent higher scores to organ support is intuitively consistent with the SOFA-2–matched analysis (Supplementary with clinical severity. However, prior work has shown that Fig. 8C, D). Page 5 of 10"
+    },
+    {
+      "index": 35,
+      "kind": "p",
+      "page": 5,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Our findings suggest that SOFA-2 represents more than a simple adjustment of score thresholds; rather, it"
+    },
+    {
+      "index": 36,
+      "kind": "p",
+      "page": 5,
+      "spansPages": false,
+      "method": "exact",
+      "text": "assigning the maximum score to extracorporeal support does not necessarily improve mortality discrimination"
+    },
+    {
+      "index": 37,
+      "kind": "figure",
+      "page": 6,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "Fig. 3 Distribution of Day-1 SOFA deviation and ICU mortality according to SOFA and SOFA-2 severity.Panel A shows the distribution of Day-1 SOFA devia- tion (dSOFA), defined as Day-1 SOFA-2 minus Day-1 SOFA (dSOFA=SOFA-2−SOFA). Gray bars indicate the number of hourly observations (right y-axis), and the black line indicates observed ICU mortality (left y-axis). Panel B shows ICU mortality across Day-1 SOFA-2 scores among patients matched across",
+      "imageBytes": 63328
+    },
+    {
+      "index": 38,
+      "kind": "p",
+      "page": 6,
+      "spansPages": false,
+      "method": "exact",
+      "text": "dSOFA categories on the SOFA-2 score. Panel C shows ICU mortality across hourly SOFA scores among patients matched across dSOFA categories on the original SOFA score. dSOFA categories were defined as negative dSOFA (dSOFA≤−2), minimal dSOFA (−2<dSOFA<2), and positive dSOFA (dSOFA≥2). ICU mortality represents the observed proportion of ICU deaths at each corresponding SOFA-2 or SOFA score"
+    },
+    {
+      "index": 39,
+      "kind": "p",
+      "page": 6,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "[10]. Given that SOFA is designed to classify organ dys- heat maps demonstrated prognostic heterogeneity within function rather than predict mortality, improvements identical SOFA-2 categories. Furthermore, although in discrimination are not required for its validity. Our more detailed definitions may improve discrimination, Sankey analysis indicates that patients reclassified to the they also increase computational complexity [26]. Overhighest category represent a small proportion and may all, assessment of renal dysfunction remains challenging have limited impact on overall discrimination. The effect [27], and limitations persist even in the revised SOFA-2 of this reclassification may be greater in settings enriched framework [28]. with advanced organ support, such as ECMO centers. At the same time, incorporating extracorporeal support discordance using SOFA deviation. After matching on into scoring may introduce double counting of severity SOFA-2, mortality was higher in the Negative dSOFA and obscure changes in patient status during support. group, whereas after matching on SOFA, mortality was The performance of SOFA and SOFA-2 for longitudinal higher in the Positive dSOFA group. These findings indiassessment remains to be established. In contrast, the kidney subscore demonstrated a more one scoring system may remain clinically heterogeneous complex pattern with bidirectional reclassification. according to the other scoring system and with respect This pattern reflects attempts to capture renal dysfunc- to outcome. Similar findings were reported in an extertion using detailed definitions but also highlights unre- nal validation study, in which patients with SOFA-2 lower solved limitations. Upward shifts likely reflect urine than SOFA had the highest ICU mortality (9.8%), comoutput criteria and the inclusion of renal replacement pared with 7.8% in upward reclassification and 4.3% in therapy, whereas downward shifts may occur after dis- unchanged scores [18]. Within our two matched cohorts, continuation of renal support. Because renal replace- the distributions of illness severity, organ-support therament therapy is assigned the maximum subscore while pies, and other clinical characteristics across dSOFA catongoing, improvement in underlying renal function may egories were broadly reversed according to the score used be obscured during treatment [23]. In addition, current for matching. Differences in treatment use, particularly scoring approaches may not fully capture the timing renal replacement therapy and vasoactive medications, and degree of renal recovery following discontinuation likely contributed to discordance through their effects on of renal replacement therapy [24]. In addition, reliance the renal and cardiovascular subscores. These domains on creatinine has been questioned [25]. In our analysis, include overlapping components, such as dialysis, urine Page 6 of 10"
+    },
+    {
+      "index": 40,
+      "kind": "p",
+      "page": 6,
+      "spansPages": false,
+      "method": "exact",
+      "text": "We next examined the clinical implications of score"
+    },
+    {
+      "index": 41,
+      "kind": "p",
+      "page": 6,
+      "spansPages": false,
+      "method": "exact",
+      "text": "cate that patients classified at the same severity level by"
+    },
+    {
+      "index": 42,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "Table 2 Patient characteristics and outcomes after exact matching on Day-1 SOFA-2 and SOFA, stratified by SOFA Deviation (dSOFA) category SOFA-2 Matching Negative Minimal Positive dSOFA dSOFA dSOFA (n=15898) (n=15898) (n=15898) Age, years, mean (sd) 68.4 (15.9) 67.5 (16.1) 66.5 (17.1) <0.001 Female, n (%) 6071 (38.2) 6104 (38.4) 6346 (39.9) 0.003 BMI, kg/m2, mean (sd) 22.3 (4.6) 22.8 (10.3) 23.0 (4.4) Readmission, n (%) 1250 (8.0) 941 (5.9) 873 (5.5) Elective Surgery, n (%) 2113 (13.3) 2836 (17.8) 1661 (10.4) <0.001 APACHE III, pts, mean (sd) 111.6 (39.5) 100.1 (37.8) 89.0 (36.2) <0.001 CCI, pts, mean (sd) 4.4 (3.2) 4.3 (3.1) 3.8 (2.9) Treatment, n (%) Nasal High Flow 434 (2.7) 435 (2.7) 520 (3.3) NIPPV 377 (2.4) 413 (2.6) 635 (4.0) IMV 8269 (52.0) 6356 4263 (26.8) <0.001 (40.0) VV-ECMO 13 (0.1) 15 (0.1) 14 (0.1) Epinephrine 380 (2.4) 234 (1.5) 54 (0.3) Vasopressin 1121 (7.1) 667 (4.2) 302 (1.9) Norepinephrine 7956 (50.0) 3587 756 (4.8) (22.6) Dopamine 2168 (13.6) 2070 344 (2.2) (13.0) Dobutamine 1827 (11.5) 1817 434 (2.7) (11.4) IABP 140 (0.9) 167 (1.1) 220 (1.4) Microaxial flow pump 15 (0.1) 29 (0.2) 15 (0.1) VA-ECMO 119 (0.7) 147 (0.9) 145 (0.9) RRT 581 (3.7) 875 (5.5) 1180 (7.4) <0.001 SOFA score, pts, mean (sd) 10.2 (3.5) 7.40 (3.5) 4.7 (3.3) SOFA-2 score, pts, mean (sd) 7.41 (3.4) 7.41 (3.4) 7.41 (3.4) Outcomes ICU death 1423 (9.0) 909 (5.7) 796 (5.0) Hospital death, n (%) 2272 (14.6) 1472 (9.5) 1320 (8.5) <0.001 Length of ICU Stay, days, mean (sd) 8.2 (11.3) 6.9 (11.9) 6.7 (10.2) Length of Hospital Stay, days, mean 33.1 (46.0) 29.2 (29.1) 27.2 (35.5) 0.064 (sd) SOFA Deviation (dSOFA) was defined as the difference between Day-1 SOFA2 and Day-1 SOFA scores (Day-1 SOFA2 minus Day-1 SOFA). Patients were stratified as Negative dSOFA (≤ −2), Minimal dSOFA (> −2 and < 2), and Positive dSOFA (≥ 2). Patients were matched across the three groups on Day-1 SOFA-2 score and SOFA score. Categorical variables are presented as number (%); variables not labeled as n (%) are numerical and are presented as mean (SD). Abbreviations: APACHE III, Acute Physiology and Chronic Health Evaluation III; BMI, Body Mass Index; CCI, Charlson Comorbidity Index; IABP, Intra-Aorta Balloon Pumping; IMV, Invasive Mechanical Ventilation; NIPPV, Non-Invasive Positive Pressure Ventilation; RRT, Renal Replacement Therapy; VV-ECMO, Veno-Venous Extracorporeal Membrane Oxygenation; VA-ECMO, Veno-Arterial ExtraCorporeal Membrane Oxygenation"
+    },
+    {
+      "index": 43,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "output, and creatinine for renal function, and vasoac- Our findings may have practical implications for the tive agents and mechanical support for cardiovascular clinical interpretation of organ dysfunction scores. Prior function. The findings therefore suggest that SOFA and validation studies have reported higher prognostic dis- SOFA-2 capture overlapping but nonidentical aspects crimination for SOFA-2 than for conventional SOFA, of organ dysfunction, rather than indicating that either supporting its clinical relevance as an updated severity score is uniformly more informative. SOFA-2 neverthe- scoring system. However, higher prognostic discriminaless has important advantages, including the incorpora- tion does not necessarily imply that conventional SOFA tion of clinically relevant contemporary variables and should be replaced entirely or that SOFA-2 should be improved predictive performance, which may be further preferentially used in all clinical settings. Instead, the two enhanced in specific settings [29]. Page 7 of 10"
+    },
+    {
+      "index": 44,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "SOFA Matching P-value Negative Minimal Positive PdSOFA dSOFA dSOFA value (n=13582) (n=13582) (n=13582) 65.9 (17.4) 67.6 (16.1) 68.2 (16.4) <0.001 5481 (40.4) 5088 (37.5) 4959 (36.5) <0.001 <0.001 22.4 (4.4) 22.6 (4.4) 22.7 (4.5) <0.001 <0.001 865 (6.4) 800 (5.9) 887 (6.5) 0.077 1906 (14.0) 2379 (17.5) 1488 (11.0) <0.001 85.4 (35.6) 99.3 (34.9) 112.3 (34.8) <0.001 <0.001 4.0 (3.1) 4.3 (3.1) 4.1 (3.1) <0.001"
+    },
+    {
+      "index": 45,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "0.004 208 (1.5) 354 (2.6) 604 (4.4) <0.001 <0.001 226 (1.7) 380 (2.8) 650 (4.8) <0.001 3887 (28.6) 5389 (39.7) 6323 (46.6) <0.001"
+    },
+    {
+      "index": 46,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "0.931 3 (0.0) 11 (0.1) 24 (0.2) <0.001 <0.001 113 (0.8) 167 (1.2) 164 (1.2) 0.002 <0.001 337 (2.5) 487 (3.6) 481 (3.5) <0.001 <0.001 3536 (26.0) 2754 (20.3) 1420 (10.5) <0.001"
+    },
+    {
+      "index": 47,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "exact",
+      "text": "<0.001 994 (7.3) 1635 (12.0) 580 (4.3) <0.001"
+    },
+    {
+      "index": 48,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "exact",
+      "text": "<0.001 758 (5.6) 1385 (10.2) 679 (5.0) <0.001"
+    },
+    {
+      "index": 49,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "<0.001 49 (0.4) 111 (0.8) 270 (2.0) <0.001 0.036 4 (0.0) 11 (0.1) 32 (0.2) <0.001 0.166 31 (0.2) 86 (0.6) 289 (2.1) <0.001 189 (1.4) 671 (4.9) 2010 (14.8) <0.001 <0.001 7.3 (3.0) 7.3 (3.0) 7.3 (3.0) 1 1 4.7 (3.0) 7.3 (3.1) 10.0 (3.2) <0.001"
+    },
+    {
+      "index": 50,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "<0.001 462 (3.4) 683 (5.0) 1291 (9.5) <0.001 917 (6.9) 1185 (8.9) 1952 (14.6) <0.001 <0.001 5.9 (9.1) 6.6 (9.2) 8.8 (13.0) <0.001 27.3 (43.2) 32.2 (34.1) 35.1 (46.1) 0.045"
+    },
+    {
+      "index": 51,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Interpretation and implications"
+    },
+    {
+      "index": 52,
+      "kind": "p",
+      "page": 7,
+      "spansPages": false,
+      "method": "exact",
+      "text": "scores may provide complementary information regarding patient heterogeneity that is not fully represented by"
+    },
+    {
+      "index": 53,
+      "kind": "figure",
+      "page": 8,
+      "spansPages": false,
+      "method": "neighbor",
+      "caption": "Fig. 4 Organ-specific SOFA subscores across SOFA deviation categories. Mean baseline (Day 1) organ subscores (brain, respiratory, cardiovascular, liver, kidney, and hemostasis) stratified by SOFA deviation (dSOFA) category. dSOFA deviation was defined as Day-1 SOFA-2 minus Day-1 SOFA (dSOFA=SOFA- 2−SOFA). Categories were defined as Positive deviation (dSOFA≥2), Minimal deviation (−2<dSOFA<2), and Negative deviation (dSOFA≤−2). Bars",
+      "imageBytes": 56892
+    },
+    {
+      "index": 54,
+      "kind": "p",
+      "page": 8,
+      "spansPages": false,
+      "method": "exact",
+      "text": "represent mean SOFA subscores (range 0–4) within each deviation category. Color coding indicates deviation category: red=Negative deviation, green=Minimal deviation, and blue=Positive deviation"
+    },
+    {
+      "index": 55,
+      "kind": "p",
+      "page": 8,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "either scoring system alone. The DAG illustrated that discordance between the scores can be used for risk most parameters contributing to SOFA and SOFA-2 stratification or clinical decision support. overlap. Conditioning on one score would therefore be expected to account for much of the information repre- SOFA-2 differ in how they operationalize severity. A sented by the other. Nevertheless, clinically meaningful key algorithmic distinction is that SOFA-2 assigns the differences in the alternate score, patient characteristics, maximum subscore to certain advanced organ-support and mortality remained after either matching strategy. modalities. This approach is clinically intuitive and may This pattern suggests that the residual heterogeneity may have contributed to the improved mortality discriminaarise not only from differences in the variables included tion reported for SOFA-2. However, potential limitations in each score, but also from differences in their scor- of assigning the maximum score to patients receiving ing algorithms, including thresholds, weighting, and advanced organ support have been reported in several the treatment of organ-support therapies. Discor- previous studies [30–32]. Iwasaki et al. described this dance between SOFA and SOFA-2 may therefore iden- limitation as a “ceiling effect” [30], whereas Kumaido et tify patients whose severity is not fully captured by one al. reported a case in which SOFA and SOFA-2 appeared scoring system alone. Such discordance may provide to provide complementary information during ongocomplementary information during clinical assessment, ing extracorporeal and renal support [23]. Accordingly, but whether it leads to specific actionable decisions the relative contribution of each score may vary across remains uncertain. Our study did not evaluate whether phases of critical illness, including initial resuscitation, SOFA-2–based reclassification improves prognostic cali- escalation of organ-support therapy, and recovery. This bration, changes bedside decisions, or improves patient variation may partly explain the discordance observed outcomes. Future studies should investigate whether between the two scores. Further studies are needed to Page 8 of 10"
+    },
+    {
+      "index": 56,
+      "kind": "p",
+      "page": 8,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Another possible interpretation is that SOFA and"
+    },
+    {
+      "index": 57,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "clarify how assigning maximum subscores for advanced Conclusion organ support affects longitudinal assessment and clini- In this study, we evaluated patient-level changes in cal interpretation."
+    },
+    {
+      "index": 58,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "Strengths and limitations This study has several strengths. First, the use of high- systematic reclassification of organ dysfunction, and resolution ICU data enabled detailed analysis of score reciprocal exact-matching analyses showed that patients transitions and their association with clinical outcomes. assigned the same severity by one scoring system The OneICU database records vital signs at one-minute remained heterogeneous according to the other. Simulintervals and includes detailed records of therapies and taneous interpretation of SOFA and SOFA-2 may prolaboratory measurements, allowing granular evaluation vide complementary information for severity assessment. of organ dysfunction trajectories [33, 34]. In addition, Future work should determine whether organ dysfuncall variables required to calculate SOFA and SOFA-2 tion assessment tools should evolve toward more comwere available in the database, and both scores could be prehensive physiological models or maintain simpler assigned for all eligible admissions using observed data frameworks optimized for bedside use. and prespecified score-assignment rules. Second, the multicenter design within a single healthcare system APACHE allowed evaluation across multiple ICU settings in Japan. BMI However, several limitations should be considered. CCI First, some component variables were not clinically mea- dSOFA sured in individual patients. In accordance with the pre- ICU specified score-assignment rules, observations without IABP an available measurement were assigned a score of zero RRT until the first measurement was recorded. Therefore, SD although SOFA and SOFA-2 could be calculated for all SOFA eligible admissions, comparisons at the component level STROBE should be interpreted with caution. Second, the study was conducted in 15 Japanese hospitals during a period VV-ECMO Veno-Venous Extracorporeal Membrane Oxygenation that included the COVID-19 pandemic, which may limit generalizability across regions and time periods [35]. The relatively high Charlson Comorbidity Index may also Supplementary Information affect interpretation because chronic organ dysfunction, The online version contains supplementary material available ath t tp s : // d oi .o r including chronic kidney disease, can elevate SOFA and SOFA-2 subscores independently of acute organ failure [27, 36]. Because admission dates were anonymized, pandemic-related effects could not be assessed. Third, Acknowledgements we did not evaluate the cost-effectiveness of increased Not applicable. scoring complexity, including the balance between the burden of score calculation and potential improvements Author contributions in predictive performance [26]. Future studies should contributed as an advisor of statistical analysis. SU, YK, SY and SK contributed address whether severity scoring systems should evolve to the subsequent drafts. All authors read and approved the final manuscript. toward more complex physiological models or priori- Funding tize simplicity and bedside usability. Fourth, our score- Not applicable. based approach may be inherently reductionist because summary scores cannot fully represent complex states Data availability of organ dysfunction. Although SOFA was developed to available since the dataset was obtained from MediCU through a formal describe organ dysfunction, it was refined partly accord- request/approval process as above but is available from the corresponding ing to its association with mortality, creating a concep- author on reasonable request. tual tension between its descriptive and prognostic roles. Moreover, an increase in SOFA score is now widely Declarations used in the operational definition of sepsis. Our findings Ethics approval and consent to participate should therefore be interpreted as score-based associa- Ethical approval was granted by the Ethics Committee of Jichi Medical tions rather than as a comprehensive or causal represen- University Saitama Medical Center (approval number: S25-109), and the tation of organ dysfunction. Page 9 of 10"
+    },
+    {
+      "index": 59,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "exact",
+      "text": "organ subscores and total severity scores when transitioning from SOFA to SOFA-2 and examined their association with clinical outcomes. SOFA-2 induced"
+    },
+    {
+      "index": 60,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "Abbreviations Acute Physiology and Chronic Health Evaluation Body Mass Index Charlson Comorbidity Index DAG directed acyclic graph SOFA deviation (SOFA-2 minus SOFA) Intensive Care Unit Intra-Aortic Balloon Pumping NPPV Non-Invasive Positive Pressure Ventilation Renal Replacement Therapy Standard Deviation Sequential Organ Failure Assessment SOFA-2 Revised Sequential Organ Failure Assessment score Strengthening the Reporting of Observational Studies in Epidemiology"
+    },
+    {
+      "index": 61,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "exact",
+      "text": "VA-ECMO Veno-Arterial Extracorporeal Membrane Oxygenation"
+    },
+    {
+      "index": 62,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "exact",
+      "text": "g / 1 0 . 1 1 8 6 / s 1 3 0 5 4 - 0 2 6 - 0 6 2 4 1 - 0."
+    },
+    {
+      "index": 63,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Supplementary Material 1."
+    },
+    {
+      "index": 64,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "exact",
+      "text": "SO is responsible for the analysis and the first draft of the manuscript. SU"
+    },
+    {
+      "index": 65,
+      "kind": "p",
+      "page": 9,
+      "spansPages": false,
+      "method": "exact",
+      "text": "The datasets generated and/or analyzed during the current study are not"
+    },
+    {
+      "index": 66,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "exact",
+      "text": "requirement for informed consent was waived due to the retrospective nature of the study."
+    },
+    {
+      "index": 67,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Consent for publication Not applicable."
+    },
+    {
+      "index": 68,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Competing interests The authors declare no competing interests."
+    },
+    {
+      "index": 69,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Received: 8 May 2026 / Accepted: 4 August 2026"
+    },
+    {
+      "index": 70,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "fuzzy",
+      "text": "References 1. Moreno R, Rhodes A, Ranzani O, Salluh JIF, Berger-Estilita J, Coopersmith CM, et al. Rationale and methodological approach underlying the development of the Sequential Organ Failure Assessment (SOFA)-2 score: A consensus statement: A consensus statement. JAMA Netw Open. 2025;8:e2545040. 2. Ranzani OT, Singer M, Salluh JIF, Shankar-Hari M, Pilcher D, Berger-Estilita J et al. Development and validation of the Sequential Organ Failure Assessment (SOFA)-2 score. JAMA [Internet]. 2025; Available from:h t tp s : // d oi .o rg / 1 0 . 1 0 0 1 / j a m a . 2 0 2 5 . 2 0 5 1 6 3. Vincent JL, Moreno R, Takala J, Willatts S, De Mendonça A, Bruining H, et al. The SOFA (Sepsis-related Organ Failure Assessment) score to describe organ dysfunction/failure. On behalf of the Working Group on Sepsis-Related Problems of the European Society of Intensive Care Medicine. Intensive Care Med. 1996;22:707–10. 4. Vincent JL, de Mendonça A, Cantraine F, Moreno R, Takala J, Suter PM, et al. Use of the SOFA score to assess the incidence of organ dysfunction/failure in intensive care units: results of a multicenter, prospective study. Working group on sepsis-related problems of the European Society of Intensive Care Medicine. Crit Care Med. 1998;26:1793–800. 5. Shankar-Hari M, Wunsch H, Rowan K, Singer M, Rubenfeld GD, Angus DC. Reflections on critical care’s past, present, and future. Crit Care Med. 2021;49:1855–65. 6. Pölkki A, Pekkarinen PT, Takala J, Selander T, Reinikainen M. Association of Sequential Organ Failure Assessment (SOFA) components with mortality. Acta Anaesthesiol Scand. 2022;66:731–41. 7. Lambden S, Laterre PF, Levy MM, Francois B. The SOFA score-development, utility and challenges of accurate assessment in clinical trials. Crit Care. 2019;23:374. 8. Moreno R, Singer M, Rhodes A. Why the Sequential Organ Failure Assessment score needs updating? Crit Care Sci. 2024;36:e20240296en. 9. Moreno R, Rhodes A, Singer M, Vincent J-L, authors. Real-world inter-observer variability of the sequential organ failure assessment (SOFA) score in intensive care medicine: the time has come for an update: authors’ reply. Crit Care. 2023;27:182. 10. Yawata S, Nishiyama S, Ono S, Katayama S, Shiotsuka J. Assessing the impact of additional clinical variables on SOFA score predictive accuracy: a retrospective cohort study. Anaesthesia. 2025;80:112–4. 11. Garland A, Olafson K, Ramsey CD, Yogendran M, Fransoo R. Epidemiology of critically ill patients in intensive care units: a population-based observational study. Crit Care. 2013;17:R212. 12. Irie H, Okamoto H, Uchino S, Endo H, Uchida M, Kawasaki T, et al. The Japanese Intensive care PAtient Database (JIPAD): A national intensive care unit registry in Japan. J Crit Care. 2020;55:86–94. 13. Liu V, Turk BJ, Ragins AI, Kipnis P, Escobar GJ. An electronic Simplified Acute Physiology Score-based risk adjustment score for critical illness in an integrated healthcare system. Crit Care Med. 2013;41:41–8. 14. Metnitz PG, Vesely H, Valentin A, Popow C, Hiesmayr M, Lenz K, et al. Evaluation of an interdisciplinary data set for national intensive care unit assessment. Crit Care Med. 1999;27:1486–91. 15. Secombe P, Millar J, Litton E, Chavan S, Hensman T, Hart GK, et al. Thirty years of ANZICS CORE: A clinical quality success story. Crit Care Resusc. 2023;25:43–6. 16. Dongelmans DA, Pilcher D, Beane A, Soares M, Del Pilar Arias Lopez M, Fernandez A, et al. Linking of global intensive care (LOGIC): An international benchmarking in critical care initiative. J Crit Care. 2020;60:305–10. 17. Pei F, Gu B, Liu Z, Li G, Nie Y, Chen M et al. Validation of SOFA-2 score in sepsis and exploration of its extension with additional immune markers. J Intensive Page 10 of 10"
+    },
+    {
+      "index": 71,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Med [Internet]. 2026; Available from:h t tp s : // d oi .o rg / 1 0 . 1 0 1 6 / j. j o i n t m . 2 0 2 5 . 1 2 . 0 0 3 18. Bai S, Huang M, Chen H, Yang X, Chen L, Liu F et al. SOFA-2 versus SOFA-1 for mortality prediction in critically ill patients. J Intensive Care [Internet]. 2026;14. Available from:https:/ /doi.org/10.11 86/s 40560-026-00875-6 19. von Elm E, Altman DG, Egger M, Pocock SJ, Gøtzsche PC, Vandenbroucke JP, et al. The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) statement: guidelines for reporting observational studies. Ann Intern Med. 2007;147:573–7. 20. Iwagami M, Shinozaki T. Introduction to matching in case-control and cohort studies. Ann Clin Epidemiol. 2022;4:33–40. 21. Ko BS, Ryoo SM, Han E, Chang H, Yune CJ, Lee HJ, et al. Modified cardiovascular Sequential Organ Failure Assessment score in sepsis: External validation in intensive care unit patients. J Korean Med Sci. 2023;38:e418. 22. Yadav H, Harrison AM, Hanson AC, Gajic O, Kor DJ, Cartin-Ceba R. Improving the accuracy of cardiovascular component of the Sequential Organ Failure Assessment score. Crit Care Med. 2015;43:1449–57. 23. Kumaido Y, Ono S, Uchino S, Yawata S, Katayama S. Different longitudinal patterns of sequential organ failure assessment (SOFA) and SOFA-2 scores during extracorporeal membrane oxygenation and continuous renal replacement therapy in septic cardiomyopathy. J Anesth [Internet]. 2026; Available from: https:/ /doi.org/10.10 07/s 00540-026-03791-z 24. Uchino S, Katayama S. SOFA-2 and the shift from observation-based scoring to contextual interpretation. Am J Respir Crit Care Med [Internet]. 2026; Available from:https:/ /doi.org/10.10 93/a jrccm/aamag148 25. Kellum JA, Akcan Arikan A, Ostermann M. SOFA-2, phoenix and kidney dysfunction. Intensive Care Med [Internet]. 2026 [cited 2026 Mar 27]; Available from:https:/ /doi.org/10.10 07/s 00134-026-08393-7 26. Uchino S, Katayama S. Revisiting the simplicity of SOFA-2: a pragmatic assessment of implementability. Crit Care. 2026;30:82. 27. Kotani Y, Fujii T, Uchino S, Doi K, JAKID Study Group. Modification of sequential organ failure assessment score using acute kidney injury classification. J Crit Care. 2019;51:198–203. 28. Monard C, Schneider A. Clarifying the SOFA-2 score. JAMA [Internet]. 2026 [cited 2026 Mar 27]; Available from:https:/ /doi.org/10.10 01/j ama.2026.0304 29. Sendagire C, Lipnick MS, Kizito S, Kruisselbrink R, Obua D, Ejoku J, et al. Feasibility of the modified sequential organ function assessment score in a resource-constrained setting: a prospective observational study. BMC Anesthesiol. 2017;17:12. 30. Iwasaki Y, Kinoshita T, Yoshimura J, Maruyama S, Ohshimo S, Murao S et al. Admission-day SOFA-2 versus SOFA for mortality discrimination: external validation in a large multicenter ICU database. Crit Care [Internet]. 2026 [cited 2026 May 18]; Available from:https://d oi. org/10 .11 86/ s13 054-0 26-06020-x 31. Huespe IA, Lockhart C, Kashyap R, Palizas F Jr, Colombo M, Romero MDP, et al. Evaluation of the discrimination and calibration of predictive scores of mortality in ECMO for patients with COVID-19. Artif Organs. 2023;47:1007–17. 32. Perez-Garzon M, Robayo-Amortegui H, Ochoa-Ricardo A, Quintero-Altare A, Poveda-Henao C. Prognostic accuracy of oxygen debt for mortality in patients undergoing venoarterial extracorporeal membrane oxygenation therapy: a retrospective cohort study. Front Med (Lausanne). 2025;12:1651531. 33. Brinton DL, Ford DW, Martin RH, Simpson KN, Goodwin AJ, Simpson AN. Missing data methods for intensive care unit SOFA scores in electronic health records studies: results from a Monte Carlo simulation. J Comp Eff Res. 2022;11:47–56. 34. Alrawashdeh M, Klompas M, Rhee C. The impact of common variations in Sequential Organ Failure Assessment score calculation on sepsis measurement using sepsis-3 criteria: A retrospective analysis using electronic health record data. Crit Care Med. 2024;52:1380–90. 35. Shiotsuka J, Masuyama T, Uchino S, Sasabuchi Y, Suzuki R, Ono S, et al. Utilization and outcomes of life-supporting interventions in older ICU patients in Japan: a nationwide registry study. Intensive Care Med. 2025;51:115–24. 36. Bellomo R, Kellum J, Ronco C. Acute renal failure: time for consensus. Intensive Care Med. 2001;27:1685–8."
+    },
+    {
+      "index": 72,
+      "kind": "p",
+      "page": 10,
+      "spansPages": false,
+      "method": "exact",
+      "text": "Publisher’s note Springer Nature remains neutral with regard to jurisdictional claims in published maps and institutional affiliations."
+    }
+  ]
+}

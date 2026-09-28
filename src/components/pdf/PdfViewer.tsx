@@ -6,7 +6,9 @@ import PdfPage from './PdfPage';
 import SelectedPanel from './SelectedPanel';
 import SelectionToolbar from './SelectionToolbar';
 import type { Annotation, TextSelection, Tool, Tag } from './types';
+import type { LucideIcon } from 'lucide-react';
 import {
+  BookOpen,
   ChevronDown,
   ChevronUp,
   Eraser,
@@ -22,11 +24,12 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import IconButton from '@/components/ui/IconButton';
 import { useLocalStorage } from '@/lib/useLocalStorage';
 import { loadPageText, mergeCharRects } from './findText';
 import type { FindMatch, PageText, Rect } from './findText';
+import { extractArticleBlocks } from './extractArticle';
+import type { ArticleBlock } from './extractArticle';
 import PageBadge from './PageBadge';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
@@ -88,6 +91,11 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   const findPagesRef = useRef<Map<number, PageText>>(new Map());
   const findTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const findReqRef = useRef(0);
+
+  // —— 阅读模式：语义化正文（供 Safari 阅读器提取），与 PDF 版式视图互斥切换 ——
+  const [readingMode, setReadingMode] = useState(false);
+  const [article, setArticle] = useState<ArticleBlock[] | null>(null);
+  const [articleBusy, setArticleBusy] = useState(false);
 
   // 加载 PDF
   useEffect(() => {
@@ -285,6 +293,22 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   const onSelectText = useCallback((sel: TextSelection | null) => {
     setSelection(sel);
   }, []);
+
+  // 进入阅读模式：首次惰性提取全文正文（结果缓存，二次切换零开销）
+  const toggleReadingMode = useCallback(() => {
+    if (readingMode) {
+      setReadingMode(false);
+      return;
+    }
+    setReadingMode(true);
+    clearSelection();
+    if (article != null || articleBusy || !pdfDoc) return;
+    setArticleBusy(true);
+    extractArticleBlocks(pdfDoc, bodyStartPage)
+      .then(setArticle)
+      .catch(() => setArticle([]))
+      .finally(() => setArticleBusy(false));
+  }, [readingMode, article, articleBusy, pdfDoc, bodyStartPage, clearSelection]);
 
   // —— 适配宽度 / 适配页面 ——
   const onPageSize = useCallback((s: { w: number; h: number }) => {
@@ -558,6 +582,13 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
             active={findOpen}
             onClick={() => setFindOpen((v) => !v)}
           />
+          <IconButton
+            icon={BookOpen}
+            label="阅读模式"
+            description="重排为流式正文（支持浏览器阅读器）"
+            active={readingMode}
+            onClick={toggleReadingMode}
+          />
 
           <span className="mx-1 h-6 w-px shrink-0 bg-gray-200" />
           <div className="flex shrink-0 items-center gap-1">
@@ -576,7 +607,7 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
       </div>
 
       {/* 查找面板 */}
-      {findOpen && (
+      {findOpen && !readingMode && (
         <div className="print:hidden fixed right-3 top-16 z-40 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
           <input
             autoFocus
@@ -603,8 +634,52 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
         </div>
       )}
 
+      {/* 阅读模式：语义化流式正文（真实可见，Safari 阅读器可提取） */}
+      {readingMode && (
+        <article lang="zh-CN" className="mx-auto max-w-2xl px-6 py-8">
+          {articleBusy ? (
+            <p className="py-20 text-center text-sm text-gray-400">正在提取正文…</p>
+          ) : article && article.length > 0 ? (
+            article.map((b, i) =>
+              b.type === 'h1' ? (
+                <h1 key={i} className="mb-4 mt-8 text-2xl font-bold text-gray-900">
+                  {b.text}
+                </h1>
+              ) : b.type === 'h2' ? (
+                <h2 key={i} className="mb-3 mt-6 text-xl font-semibold text-gray-900">
+                  {b.text}
+                </h2>
+              ) : b.type === 'figure' ? (
+                <figure key={i} className="my-6">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dataURL 裁剪图无需 Next 图片优化 */}
+                  <img
+                    src={b.src}
+                    alt={b.caption ?? ''}
+                    style={{ aspectRatio: b.aspect }}
+                    className="mx-auto max-w-full rounded border border-gray-100"
+                  />
+                  {b.caption && (
+                    <figcaption className="mt-2 text-center text-sm text-gray-500">
+                      {b.caption}
+                    </figcaption>
+                  )}
+                </figure>
+              ) : (
+                <p key={i} className="mb-4 leading-relaxed text-gray-800">
+                  {b.text}
+                </p>
+              ),
+            )
+          ) : (
+            <p className="py-20 text-center text-sm text-gray-400">
+              该文档没有可提取的文字（可能是扫描件）
+            </p>
+          )}
+        </article>
+      )}
+
       {/* 页面 */}
-      <div className="space-y-4 pt-4">
+      <div className={`space-y-4 pt-4 ${readingMode ? 'hidden' : ''}`}>
         {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
           <div key={n} data-page={n} className="flex justify-center">
             <PdfPage
@@ -631,24 +706,28 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
         ))}
       </div>
 
-      <SelectedPanel
-        annotation={selected}
-        onClose={() => setSelectedId(null)}
-        onChangeText={(t) => selected && changeText(selected.id, t)}
-        onChangeColor={(c) => selected && changeColor(selected.id, c)}
-        onDelete={() => selected && deleteAnnotation(selected.id)}
-        onAddTag={(name) => selected && addTag(selected.id, name)}
-        onRemoveTag={(name) => selected && removeTag(selected.id, name)}
-      />
+      {!readingMode && (
+        <SelectedPanel
+          annotation={selected}
+          onClose={() => setSelectedId(null)}
+          onChangeText={(t) => selected && changeText(selected.id, t)}
+          onChangeColor={(c) => selected && changeColor(selected.id, c)}
+          onDelete={() => selected && deleteAnnotation(selected.id)}
+          onAddTag={(name) => selected && addTag(selected.id, name)}
+          onRemoveTag={(name) => selected && removeTag(selected.id, name)}
+        />
+      )}
 
-      <PageBadge
-        documentId={documentId}
-        currentPage={currentPage}
-        pageCount={pageCount}
-        bodyStart={bodyStartPage}
-      />
+      {!readingMode && (
+        <PageBadge
+          documentId={documentId}
+          currentPage={currentPage}
+          pageCount={pageCount}
+          bodyStart={bodyStartPage}
+        />
+      )}
 
-      {selection && (
+      {selection && !readingMode && (
         <SelectionToolbar
           selection={selection}
           color={color}
