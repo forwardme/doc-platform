@@ -368,8 +368,9 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   const applyTextAnnotation = useCallback(
     (type: 'highlight' | 'underline') => {
       if (!selection) return;
+      const id = crypto.randomUUID();
       const ann: Omit<Annotation, 'tags'> = {
-        id: crypto.randomUUID(),
+        id,
         page: selection.page,
         type,
         data: { rects: selection.rects },
@@ -377,6 +378,9 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
         color,
       };
       addAnnotation(ann);
+      // 创建后立即选中并切回「选择」工具，行内编辑框随即挂在批注上（替代底部面板）
+      setSelectedId(id);
+      setTool('select');
       clearSelection();
     },
     [selection, color, addAnnotation, clearSelection],
@@ -726,7 +730,7 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
         ))}
       </div>
 
-      {!readingMode && selected && selected.type !== 'note' && (
+      {!readingMode && selected && selected.type === 'ink' && (
         <SelectedPanel
           annotation={selected}
           onClose={() => setSelectedId(null)}

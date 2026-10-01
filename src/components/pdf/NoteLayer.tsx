@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Check, Pin, StickyNote, Trash2 } from 'lucide-react';
 import type { Annotation, AnnotationData, Tool } from './types';
+import EditorTools from './EditorTools';
 
 const DEFAULT_W = 180;
 const DEFAULT_H = 110;
@@ -12,8 +13,6 @@ const MIN_H = 48;
 const HANDLE = 14;
 // 收缩后的符号标记直径（PDF 点），与旧便签圆点一致
 const MARKER = 14;
-
-const PRESET_COLORS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#111827'];
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -140,14 +139,6 @@ function NoteCard({
   const expanded = selected || pinned;
   const dragRef = useRef<Drag | null>(null);
   const resizeRef = useRef<Resize | null>(null);
-  const [tagInput, setTagInput] = useState('');
-
-  function submitTag() {
-    const name = tagInput.trim();
-    if (!name) return;
-    onAddTag(a.id, name);
-    setTagInput('');
-  }
 
   function onDown(e: React.PointerEvent) {
     if (textMode) return;
@@ -281,59 +272,15 @@ function NoteCard({
           </div>
         )}
 
-        {/* 底部工具条：颜色 + 标签（仅编辑时显示） */}
+        {/* 底部工具条：颜色 + 标签（仅编辑时显示，与文本批注编辑框共用） */}
         {selected && (
-          <div className="flex shrink-0 flex-col gap-1 border-t border-gray-100 px-2 py-1">
-            <div className="flex items-center gap-1">
-              <span className="text-gray-400" style={{ fontSize: 10 }}>
-                颜色
-              </span>
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => onChangeColor(a.id, c)}
-                  className="h-3 w-3 rounded-full border border-gray-300"
-                  style={{ backgroundColor: c, outline: a.color === c ? '1.5px solid #2563eb' : 'none', outlineOffset: 1 }}
-                />
-              ))}
-              <input
-                type="color"
-                value={a.color}
-                onChange={(e) => onChangeColor(a.id, e.target.value)}
-                title="自定义颜色"
-                className="h-4 w-5 cursor-pointer border-0 bg-transparent p-0"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              {a.tags.map((t) => (
-                <span
-                  key={t.name}
-                  className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5"
-                  style={{ backgroundColor: t.color + '22', color: t.color, fontSize: 10 }}
-                >
-                  {t.name}
-                  <button onClick={() => onRemoveTag(a.id, t.name)} className="hover:opacity-70">
-                    ×
-                  </button>
-                </span>
-              ))}
-              <input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') submitTag();
-                }}
-                placeholder="+标签"
-                className="w-12 rounded-full border border-gray-200 px-1.5 py-0.5 text-gray-700 focus:border-blue-500 focus:outline-none"
-                style={{ fontSize: 10 }}
-              />
-              {tagInput.trim() && (
-                <button onClick={submitTag} className="rounded-full bg-blue-600 px-1.5 py-0.5 text-white" style={{ fontSize: 10 }}>
-                  添加
-                </button>
-              )}
-            </div>
-          </div>
+          <EditorTools
+            color={a.color}
+            tags={a.tags}
+            onChangeColor={(c) => onChangeColor(a.id, c)}
+            onAddTag={(n) => onAddTag(a.id, n)}
+            onRemoveTag={(n) => onRemoveTag(a.id, n)}
+          />
         )}
       </div>
 

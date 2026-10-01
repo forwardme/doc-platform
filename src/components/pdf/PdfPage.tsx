@@ -5,6 +5,7 @@ import * as pdfjs from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import AnnotationLayer from './AnnotationLayer';
 import NoteLayer from './NoteLayer';
+import MarkupLayer from './MarkupLayer';
 import { useInView } from './useInView';
 import type { Annotation, AnnotationData, TextSelection, Tool } from './types';
 
@@ -320,6 +321,10 @@ export default memo(function PdfPage(props: Props) {
     });
   }
 
+  // 选中的文本批注（高亮/下划线）：交由 MarkupLayer 在页面上行内编辑
+  const selectedMarkup =
+    annotations.find((a) => a.id === selectedId && (a.type === 'highlight' || a.type === 'underline')) ?? null;
+
   const displayWidth = size ? size.w * zoom : undefined;
   const displayHeight = size ? size.h * zoom : undefined;
 
@@ -422,6 +427,19 @@ export default memo(function PdfPage(props: Props) {
             onSelect={onSelect}
             onChangeText={onChangeText}
             onChangeData={onChangeData}
+            onChangeColor={onChangeColor}
+            onAddTag={onAddTag}
+            onRemoveTag={onRemoveTag}
+            onDelete={onErase}
+          />
+          <MarkupLayer
+            annotation={selectedMarkup}
+            zoom={zoom}
+            pageWidth={size.w}
+            pageHeight={size.h}
+            tool={tool}
+            onClose={() => onSelect(null)}
+            onChangeText={onChangeText}
             onChangeColor={onChangeColor}
             onAddTag={onAddTag}
             onRemoveTag={onRemoveTag}
