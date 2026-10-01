@@ -65,6 +65,8 @@ function erasePoints(paths: [number, number][][], cx: number, cy: number, half: 
   return result;
 }
 
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 type Draft = { kind: 'ink'; points: [number, number][] };
 
 export default function AnnotationLayer(props: Props) {
@@ -130,7 +132,16 @@ export default function AnnotationLayer(props: Props) {
       setDraft({ kind: 'ink', points: [[x, y]] });
     } else if (tool === 'note') {
       const id = crypto.randomUUID();
-      onAdd({ id, page: pageNumber, type: 'note', data: { x, y }, text: '', color });
+      const W = Math.min(180, pageWidth);
+      const H = Math.min(110, pageHeight);
+      onAdd({
+        id,
+        page: pageNumber,
+        type: 'note',
+        data: { x: clamp(x, 0, pageWidth - W), y: clamp(y, 0, pageHeight - H), w: W, h: H },
+        text: '',
+        color,
+      });
       onSelect(id);
     }
   }
@@ -271,20 +282,8 @@ export default function AnnotationLayer(props: Props) {
           );
         }
 
-        // note
-        const x = a.data.x ?? 0;
-        const y = a.data.y ?? 0;
-        return (
-          <g key={a.id}>
-            <circle cx={x} cy={y} r={7} fill={a.color} stroke="#fff" strokeWidth={1.5} style={{ cursor: hitCursor }} onClick={(e) => handleClick(a, e)} />
-            {a.text ? (
-              <text x={x + 12} y={y + 4} fontSize={11} fill="#1f2937" pointerEvents="none">
-                {a.text.length > 40 ? a.text.slice(0, 40) + '…' : a.text}
-              </text>
-            ) : null}
-            {selected && <circle cx={x} cy={y} r={11} fill="none" stroke="#2563eb" strokeWidth={1.5} strokeDasharray="4 4" />}
-          </g>
-        );
+        // note 类型由 NoteLayer（HTML 便签层）渲染，SVG 层不再绘制
+        return null;
       })}
 
       {draft?.kind === 'ink' && draft.points.length > 1 && (

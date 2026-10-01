@@ -28,8 +28,11 @@ const TYPE_LABEL: Record<string, string> = { ink: '✍️ 手写', highlight: '�
 export default function TagIndex() {
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
   useEffect(() => {
+    // 支持 ?tag=id：从侧边栏「标签管理」点击标签进入，仅显示该标签下的批注
+    setSelectedTagId(new URLSearchParams(window.location.search).get('tag'));
     fetch('/api/tags')
       .then((r) => r.json())
       .then((d) => setGroups(d.groups ?? []))
@@ -38,6 +41,25 @@ export default function TagIndex() {
 
   if (loading) {
     return <div className="py-20 text-center text-sm text-gray-400">加载中…</div>;
+  }
+
+  const visibleGroups = selectedTagId ? groups.filter((g) => String(g.tag.id) === selectedTagId) : groups;
+
+  if (selectedTagId && visibleGroups.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-lg font-semibold">标签索引</h1>
+          <p className="text-sm text-gray-500">跨文档汇总所有被标注并打标签的内容</p>
+          <Link href="/tags" className="mt-1 inline-block text-sm text-blue-600 hover:underline">
+            ← 全部标签
+          </Link>
+        </div>
+        <div className="rounded-lg border border-dashed border-gray-300 py-16 text-center text-sm text-gray-400">
+          该标签下暂无批注。
+        </div>
+      </div>
+    );
   }
 
   if (groups.length === 0) {
@@ -53,9 +75,14 @@ export default function TagIndex() {
       <div>
         <h1 className="text-lg font-semibold">标签索引</h1>
         <p className="text-sm text-gray-500">跨文档汇总所有被标注并打标签的内容</p>
+        {selectedTagId && (
+          <Link href="/tags" className="mt-1 inline-block text-sm text-blue-600 hover:underline">
+            ← 全部标签
+          </Link>
+        )}
       </div>
 
-      {groups.map((g) => (
+      {visibleGroups.map((g) => (
         <div key={g.tag.id} className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
             <span className="h-3 w-3 rounded-full" style={{ backgroundColor: g.tag.color }} />

@@ -329,7 +329,12 @@ export default function Sidebar({ username }: { username: string }) {
             </Section>
 
             <Section title="标签管理">
-              <ManageList api="/api/tags" createLabel="新建标签" items={data.tags} />
+              <ManageList
+                api="/api/tags"
+                createLabel="新建标签"
+                items={data.tags}
+                hrefFor={(id) => `/tags?tag=${id}`}
+              />
             </Section>
           </div>
         </div>

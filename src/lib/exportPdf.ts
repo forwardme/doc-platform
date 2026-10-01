@@ -95,25 +95,52 @@ export async function buildAnnotatedPdf(
         }
       }
     } else if (a.type === 'note') {
-      const d = a.data as { x?: number; y?: number };
+      const d = a.data as { x?: number; y?: number; w?: number; h?: number };
       const x = d.x ?? 0;
       const y = d.y ?? 0;
-      page.drawEllipse({
-        x,
-        y: H - y,
-        xScale: 7,
-        yScale: 7,
-        color: col,
-        borderColor: rgb(1, 1, 1),
-        borderWidth: 1.5,
-      });
-      if (a.text && isAsciiSafe(a.text)) {
-        page.drawText(a.text.slice(0, 40), {
-          x: x + 12,
-          y: H - y - 14,
-          size: 11,
-          color: rgb(0.12, 0.16, 0.22),
+      const w = d.w;
+      const h = d.h;
+      if (w && h) {
+        // 便签卡：白底彩边矩形 + 多行文字（y 坐标 PDF 点，左上角锚点 → 左下角翻转）
+        page.drawRectangle({
+          x,
+          y: H - y - h,
+          width: w,
+          height: h,
+          color: rgb(1, 1, 1),
+          borderColor: col,
+          borderWidth: 1,
         });
+        if (a.text && isAsciiSafe(a.text)) {
+          const lines = a.text.split('\n');
+          lines.forEach((line, i) => {
+            page.drawText(line, {
+              x: x + 4,
+              y: H - y - 14 - i * 13,
+              size: 11,
+              color: rgb(0.12, 0.16, 0.22),
+            });
+          });
+        }
+      } else {
+        // 旧便签（无宽高）：圆点 + 单行文字
+        page.drawEllipse({
+          x,
+          y: H - y,
+          xScale: 7,
+          yScale: 7,
+          color: col,
+          borderColor: rgb(1, 1, 1),
+          borderWidth: 1.5,
+        });
+        if (a.text && isAsciiSafe(a.text)) {
+          page.drawText(a.text, {
+            x: x + 12,
+            y: H - y - 14,
+            size: 11,
+            color: rgb(0.12, 0.16, 0.22),
+          });
+        }
       }
     }
   }

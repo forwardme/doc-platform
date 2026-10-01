@@ -5,7 +5,7 @@ import * as pdfjs from 'pdfjs-dist';
 import PdfPage from './PdfPage';
 import SelectedPanel from './SelectedPanel';
 import SelectionToolbar from './SelectionToolbar';
-import type { Annotation, TextSelection, Tool, Tag } from './types';
+import type { Annotation, AnnotationData, TextSelection, Tool, Tag } from './types';
 import type { LucideIcon } from 'lucide-react';
 import {
   BookOpen,
@@ -146,19 +146,30 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
     return () => observer.disconnect();
   }, [pdfDoc, pageCount]);
 
-  // 从标签索引跳转（?ann=id）：选中并滚动到对应页面
+  // 从标签索引跳转（?ann=id）：选中并滚动到对应页面。
+  // PDF 是异步加载的，页面元素渲染时机不定，轮询直到目标页出现再滚动。
   useEffect(() => {
     const annId = new URLSearchParams(window.location.search).get('ann');
     if (!annId) return;
     const ann = annotationsRef.current.find((a) => a.id === annId);
     if (!ann) return;
     setSelectedId(annId);
-    const t = setTimeout(() => {
-      document
-        .querySelector(`[data-page="${ann.page}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 400);
-    return () => clearTimeout(t);
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let tries = 0;
+    timer = setInterval(() => {
+      const el = document.querySelector<HTMLElement>(`[data-page="${ann.page}"]`);
+      if (el) {
+        if (timer) clearInterval(timer);
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (++tries > 160) {
+        if (timer) clearInterval(timer);
+      }
+    }, 50);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, []);
 
   const commit = useCallback(
@@ -221,6 +232,16 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
     (id: string, text: string) => {
       commit(
         annotationsRef.current.map((a) => (a.id === id ? { ...a, text } : a)),
+        false,
+      );
+    },
+    [commit],
+  );
+
+  const changeData = useCallback(
+    (id: string, data: AnnotationData) => {
+      commit(
+        annotationsRef.current.map((a) => (a.id === id ? { ...a, data } : a)),
         false,
       );
     },
@@ -692,6 +713,11 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
               onEraseInk={applyEraseInk}
               onEraseEnd={finishErase}
               onSelectText={onSelectText}
+              onChangeText={changeText}
+              onChangeData={changeData}
+              onChangeColor={changeColor}
+              onAddTag={addTag}
+              onRemoveTag={removeTag}
               onPageSize={onPageSize}
               findRects={findRectsByPage.get(n) ?? EMPTY_RECTS}
               findCurrent={currentFind?.page === n ? currentFind.rects : EMPTY_RECTS}
@@ -700,15 +726,15 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
         ))}
       </div>
 
-      {!readingMode && (
+      {!readingMode && selected && selected.type !== 'note' && (
         <SelectedPanel
           annotation={selected}
           onClose={() => setSelectedId(null)}
-          onChangeText={(t) => selected && changeText(selected.id, t)}
-          onChangeColor={(c) => selected && changeColor(selected.id, c)}
-          onDelete={() => selected && deleteAnnotation(selected.id)}
-          onAddTag={(name) => selected && addTag(selected.id, name)}
-          onRemoveTag={(name) => selected && removeTag(selected.id, name)}
+          onChangeText={(t) => changeText(selected.id, t)}
+          onChangeColor={(c) => changeColor(selected.id, c)}
+          onDelete={() => deleteAnnotation(selected.id)}
+          onAddTag={(name) => addTag(selected.id, name)}
+          onRemoveTag={(name) => removeTag(selected.id, name)}
         />
       )}
 

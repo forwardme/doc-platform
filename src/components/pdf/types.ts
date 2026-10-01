@@ -21,6 +21,9 @@ export interface AnnotationData {
   rects?: Rect[]; // 文本选区多行矩形（高亮 / 下划线）
   x?: number;
   y?: number;
+  w?: number; // 便签卡宽（PDF 点）
+  h?: number; // 便签卡高（PDF 点）
+  pinned?: boolean; // 便签「固定」：非编辑时保持展开，不收缩为标记
 }
 
 export type AnnotationType = 'ink' | 'highlight' | 'underline' | 'note';

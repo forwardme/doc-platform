@@ -43,15 +43,18 @@ export default function SelectedPanel(props: Props) {
         </button>
       </div>
 
-      <label className="mb-1 block text-xs text-gray-500">
-        {annotation.type === 'note' ? '便签内容' : '说明文字（可选）'}
-      </label>
-      <input
-        value={annotation.text}
-        onChange={(e) => onChangeText(e.target.value)}
-        placeholder={annotation.type === 'note' ? '输入笔记内容…' : '为这条批注添加说明…'}
-        className="mb-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-      />
+      {annotation.type !== 'note' && (
+        <>
+          <label className="mb-1 block text-xs text-gray-500">说明文字（可选）</label>
+          <textarea
+            rows={3}
+            value={annotation.text}
+            onChange={(e) => onChangeText(e.target.value)}
+            placeholder="为这条批注添加说明…"
+            className="mb-3 w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </>
+      )}
 
       <div className="mb-3 flex items-center gap-2">
         <span className="text-xs text-gray-500">颜色</span>

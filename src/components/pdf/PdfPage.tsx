@@ -4,8 +4,9 @@ import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import AnnotationLayer from './AnnotationLayer';
+import NoteLayer from './NoteLayer';
 import { useInView } from './useInView';
-import type { Annotation, TextSelection, Tool } from './types';
+import type { Annotation, AnnotationData, TextSelection, Tool } from './types';
 
 const MAX_RENDER_SCALE = 4; // canvas 最高渲染倍率，兼顾清晰度与内存
 const PLACEHOLDER_HEIGHT = 1100; // 页面尺寸未加载前的占位高度
@@ -64,6 +65,11 @@ interface Props {
   onEraseInk: (id: string, paths: [number, number][][]) => void;
   onEraseEnd: () => void;
   onSelectText: (sel: TextSelection | null) => void;
+  onChangeText: (id: string, text: string) => void;
+  onChangeData: (id: string, data: AnnotationData) => void;
+  onChangeColor: (id: string, color: string) => void;
+  onAddTag: (id: string, name: string) => void;
+  onRemoveTag: (id: string, name: string) => void;
   onPageSize?: (size: { w: number; h: number }) => void;
   findRects?: { x: number; y: number; w: number; h: number }[];
   findCurrent?: { x: number; y: number; w: number; h: number }[];
@@ -112,6 +118,11 @@ export default memo(function PdfPage(props: Props) {
     onEraseInk,
     onEraseEnd,
     onSelectText,
+    onChangeText,
+    onChangeData,
+    onChangeColor,
+    onAddTag,
+    onRemoveTag,
     onPageSize,
     findRects = [],
     findCurrent = [],
@@ -400,6 +411,21 @@ export default memo(function PdfPage(props: Props) {
             onErase={onErase}
             onEraseInk={onEraseInk}
             onEraseEnd={onEraseEnd}
+          />
+          <NoteLayer
+            notes={annotations.filter((a) => a.type === 'note')}
+            selectedId={selectedId}
+            zoom={zoom}
+            pageWidth={size.w}
+            pageHeight={size.h}
+            tool={tool}
+            onSelect={onSelect}
+            onChangeText={onChangeText}
+            onChangeData={onChangeData}
+            onChangeColor={onChangeColor}
+            onAddTag={onAddTag}
+            onRemoveTag={onRemoveTag}
+            onDelete={onErase}
           />
         </>
       ) : (
