@@ -258,17 +258,17 @@ export default function Sidebar({ username }: { username: string }) {
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0 ${rail ? 'md:w-16' : 'md:w-60'}`}
       >
-        <div className={`flex items-center gap-2 border-b border-gray-100 py-3 ${rail ? 'md:justify-center md:px-0' : 'px-4'}`}>
+        <div className={`flex items-center gap-2 border-b border-gray-100 py-3 ${rail ? 'md:flex-col md:px-0' : 'px-4'}`}>
           <Link href="/" className="flex items-center gap-2">
             <BookOpen size={18} className="shrink-0 text-blue-600" />
             <span className={`text-lg font-semibold tracking-tight ${rail ? 'md:hidden' : ''}`}>文档工作台</span>
           </Link>
           <button
-            onClick={() => setCollapsed(true)}
-            className={`ml-auto hidden rounded-md p-1 text-gray-400 hover:bg-gray-100 md:block ${rail ? 'md:hidden' : ''}`}
-            title="收起侧边栏"
+            onClick={() => setCollapsed(!collapsed)}
+            className={`hidden rounded-md p-1 text-gray-400 hover:bg-gray-100 md:block ${rail ? '' : 'ml-auto'}`}
+            title={rail ? '展开侧边栏' : '收起侧边栏'}
           >
-            <PanelLeftClose size={16} />
+            {rail ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
           <button
             onClick={() => setMobileOpen(false)}
@@ -346,9 +346,6 @@ export default function Sidebar({ username }: { username: string }) {
             <div className="hidden flex-col items-center gap-2 md:flex">
               <button onClick={logout} title="退出登录" className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100">
                 <LogOut size={16} />
-              </button>
-              <button onClick={() => setCollapsed(false)} title="展开侧边栏" className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100">
-                <PanelLeftOpen size={16} />
               </button>
             </div>
           )}

@@ -77,7 +77,6 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pageSizeRef = useRef<{ w: number; h: number } | null>(null);
-  const [pageSize, setPageSize] = useState<{ w: number; h: number } | null>(null);
   // 工具栏：阅读时的不透明度（透明度 = 1 - opacity），鼠标悬浮时恢复不透明
   const [tbOpacity, setTbOpacity] = useLocalStorage('pdf-toolbar-opacity', 0.4);
   const [tbHover, setTbHover] = useState(false);
@@ -313,7 +312,6 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
   // —— 适配宽度 / 适配页面 ——
   const onPageSize = useCallback((s: { w: number; h: number }) => {
     pageSizeRef.current = s;
-    setPageSize(s);
   }, []);
 
   // 缩放时保持阅读位置：记录当前页相对视口顶部的位置，重排后补偿滚动差值
@@ -479,14 +477,10 @@ export default function PdfViewer({ documentId, initialAnnotations, bodyStartPag
 
   return (
     <div ref={viewerRef}>
-      {/* 顶部工具栏：与 PDF 页面等宽，随滚动吸附视口顶部，阅读时半透明，悬浮时不透明 */}
+      {/* 顶部工具栏：铺满内容区（不含侧栏），随滚动吸附视口顶部，阅读时半透明，悬浮时不透明 */}
       <div
-        className="print:hidden sticky top-2 z-40 mx-auto transition-opacity duration-200"
-        style={{
-          width: pageSize ? Math.round(pageSize.w * zoom) : undefined,
-          maxWidth: '100%',
-          opacity: tbHover ? 1 : tbOpacity,
-        }}
+        className="print:hidden sticky top-2 z-40 transition-opacity duration-200"
+        style={{ opacity: tbHover ? 1 : tbOpacity }}
         onMouseEnter={() => setTbHover(true)}
         onMouseLeave={() => setTbHover(false)}
       >
