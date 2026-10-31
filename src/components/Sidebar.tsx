@@ -27,6 +27,7 @@ interface Tag {
 const TYPE_DOT: Record<string, string> = {
   pdf: '#ef4444',
   md: '#3b82f6',
+  markdown: '#3b82f6',
   docx: '#2563eb',
   doc: '#2563eb',
   pptx: '#f97316',

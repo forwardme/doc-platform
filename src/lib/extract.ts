@@ -9,11 +9,12 @@ export const OFFICE_EXTENSIONS = new Set([
   'docx', 'doc', 'pptx', 'ppt', 'xlsx', 'xls', 'odt', 'odp', 'ods',
 ]);
 
-export const SUPPORTED_EXTENSIONS = new Set(['pdf', 'md', ...OFFICE_EXTENSIONS]);
+export const SUPPORTED_EXTENSIONS = new Set(['pdf', 'md', 'markdown', ...OFFICE_EXTENSIONS]);
 
 const MIME_TYPES: Record<string, string> = {
   pdf: 'application/pdf',
   md: 'text/markdown',
+  markdown: 'text/markdown',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   doc: 'application/msword',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',

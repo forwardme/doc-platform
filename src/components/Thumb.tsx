@@ -12,6 +12,7 @@ interface ExtMeta {
 const EXT_META: Record<string, ExtMeta> = {
   pdf: { icon: FileText, bg: '#fee2e2', fg: '#dc2626' },
   md: { icon: FileText, bg: '#dbeafe', fg: '#2563eb' },
+  markdown: { icon: FileText, bg: '#dbeafe', fg: '#2563eb' },
   docx: { icon: FileText, bg: '#dbeafe', fg: '#1d4ed8' },
   doc: { icon: FileText, bg: '#dbeafe', fg: '#1d4ed8' },
   pptx: { icon: FileType, bg: '#ffedd5', fg: '#ea580c' },

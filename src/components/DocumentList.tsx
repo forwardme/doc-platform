@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
 import RenameButton from './RenameButton';
 import CategoryBadge from './CategoryBadge';
@@ -32,6 +32,7 @@ interface Category {
 const TYPE_LABEL: Record<string, string> = {
   pdf: 'PDF',
   md: 'MD',
+  markdown: 'MD',
   docx: 'DOCX',
   doc: 'DOC',
   pptx: 'PPTX',
@@ -91,6 +92,7 @@ function SortHeader(props: {
 
 export default function DocumentList() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const categoryParam = searchParams.get('category');
   const categoryId = categoryParam != null && categoryParam !== '' ? Number(categoryParam) : null;
 
@@ -98,6 +100,7 @@ export default function DocumentList() {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -225,6 +228,23 @@ export default function DocumentList() {
     await load(q, categoryId);
   }
 
+  async function createMarkdown() {
+    setCreating(true);
+    try {
+      const res = await fetch('/api/documents/new', { method: 'POST' });
+      const d = await res.json();
+      if (d.id != null) {
+        router.push(`/viewer/${d.id}`);
+        return;
+      }
+      setError('新建失败');
+    } catch {
+      setError('新建失败');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function onDelete(id: number) {
     if (!window.confirm('确认删除该文档？此操作不可恢复。')) return;
     await fetch(`/api/documents/${id}`, { method: 'DELETE' });
@@ -285,6 +305,13 @@ export default function DocumentList() {
         )}
         {viewToggle}
         <button
+          onClick={createMarkdown}
+          disabled={creating}
+          className="rounded-md border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+        >
+          {creating ? '新建中…' : '新建 Markdown'}
+        </button>
+        <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
@@ -295,7 +322,7 @@ export default function DocumentList() {
           ref={fileRef}
           type="file"
           multiple
-          accept=".pdf,.md,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.odp,.ods"
+          accept=".pdf,.md,.markdown,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.odp,.ods"
           className="hidden"
           onChange={(e) => onFilesChosen(e.target.files)}
         />

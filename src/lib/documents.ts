@@ -239,7 +239,7 @@ export async function ingestUploadedFile(input: {
   let status: 'ready' | 'no_preview' | 'failed' = 'no_preview';
 
   try {
-    if (ext === 'md') {
+    if (ext === 'md' || ext === 'markdown') {
       // Markdown：直接作为预览 + 正文
       content = fs.readFileSync(destOriginal, 'utf8');
       const destMd = path.join(mdDir(), `${docId}.md`);
@@ -323,6 +323,36 @@ export function commitEditedContent(docId: number, content: string, size: number
   }
 
   return getDocument(docId);
+}
+
+/** 应用内新建空白 Markdown 文档，返回文档 id。 */
+export function createMarkdownDocument(): number {
+  const db = getDb();
+  const title = '未命名文档';
+  const originalName = '未命名文档.md';
+  const info = db
+    .prepare(
+      `INSERT INTO documents (title, original_name, mime_type, extension, size, status)
+       VALUES (?, ?, 'text/markdown', 'md', 0, 'ready')`,
+    )
+    .run(title, originalName);
+  const docId = Number(info.lastInsertRowid);
+
+  const destOriginal = path.join(originalDir(), originalFileName(docId, 'md'));
+  fs.writeFileSync(destOriginal, '', 'utf8');
+  db.prepare(
+    `INSERT INTO document_files (document_id, kind, path, mime_type) VALUES (?, 'original', ?, 'text/markdown')`,
+  ).run(docId, destOriginal);
+
+  const destMd = path.join(mdDir(), `${docId}.md`);
+  fs.writeFileSync(destMd, '', 'utf8');
+  db.prepare(
+    `INSERT INTO document_files (document_id, kind, path, mime_type) VALUES (?, 'md', ?, 'text/markdown')`,
+  ).run(docId, destMd);
+
+  db.prepare(`INSERT INTO documents_fts (id, title, content) VALUES (?, ?, '')`).run(docId, title);
+
+  return docId;
 }
 
 export function deleteDocument(id: number): boolean {
